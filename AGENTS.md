@@ -44,6 +44,7 @@ scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh
 - ESP-IDF API: headers under `$HOME/esp/esp-idf-v5.5.5/components/*/include`, docs source in `$HOME/esp/esp-idf-v5.5.5/docs/en`, examples in `$HOME/esp/esp-idf-v5.5.5/examples` (e.g. `peripherals/lcd/rgb_panel`, `peripherals/twai`).
 - LVGL 9 / adapter / GT911: source in `managed_components/` after first build. Online: https://docs.lvgl.io/9.4/.
 - Vendor working code per peripheral: `third_party/waveshare-ESP32-S3-Touch-LCD-7B/examples/ESP-IDF/NN_*`. Quality is low (global state, `ESP_ERROR_CHECK` everywhere, typos like `wavesahre_`) — copy values, not style.
+- UI design (screen layout, style, field names): `docs/design.md` — read before touching UI code.
 
 ## Rules
 
