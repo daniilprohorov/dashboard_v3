@@ -22,15 +22,16 @@ Visual reference taken from an earlier browser prototype. Only layout, style and
 
 ## Layout (top → bottom, full width)
 
-1. **RPM bar** (~100 px tall): horizontal fill bar, 0–6000 rpm, 25 px side margins. Tick marks every 1000 rpm (7 ticks, labels `0`…`6` = ×1000) above the bar; fill 50 px tall, linear width.
-2. **Primary row** — 3 equal cells, huge digits (~120 px font): `RPM` | `Gear` | `Speed`.
+1. **RPM bar** (~100 px tall): horizontal fill bar, 0 … rev limit rounded up to 1000 (`CONFIG_DASH_RPM_LIMIT`, default 6000), 25 px side margins. Tick marks every 1000 rpm (labels `0`, `1`, … = ×1000) above the bar; fill 50 px tall, linear width.
+2. **Primary row** — 3 equal cells, huge digits (~100 px font, one line): `RPM` | `Gear` | `Speed`.
 3. **Secondary row** — 7 equal cells, ~40 px font: `W t` | `O t` | `O lvl` | `F cns` | `Range` | `F lvl` | `E t`.
 4. **Footer row** — 3 equal cells, ~40 px font: `Odometer` | `Errors msg` | `Time`.
 
-Each cell: bordered box (3 px white border, 5 px margin), small caption (~24 px) inset in the top border, value centered below.
+Each cell: bordered box (3 px white border, 5 px margin), small caption (~24 px) centered in the top border, value centered below.
 
 ## Style
 
-- Black background; text, borders and bar white. Monochrome, high contrast, no colors or icons.
+- Black background; text, borders and bar white. Monochrome, high contrast, no icons. Only exception: from (rev limit − 100) rpm the bar fill blinks red/white.
+- Digits are tabular (equal width) so changing values don't jitter.
 - Sans-serif. Plain values, no units shown in cells.
 - Display-only, no touch interaction.

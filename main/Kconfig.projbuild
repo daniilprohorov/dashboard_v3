@@ -1,0 +1,18 @@
+menu "Dashboard"
+
+config DASH_DEMO
+    bool "Demo mode"
+    default n
+    help
+        Sweep all dashboard fields from minimum to a plausible maximum and back
+        instead of showing real data.
+
+config DASH_RPM_LIMIT
+    int "Rev limiter, rpm"
+    range 1000 20000
+    default 6000
+    help
+        Engine rev limit. The RPM bar scale is this value rounded up to 1000;
+        from (limit - 100) rpm the bar fill blinks red/blue.
+
+endmenu

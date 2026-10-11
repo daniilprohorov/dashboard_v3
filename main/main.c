@@ -1,37 +1,12 @@
 #include <assert.h>
 
 #include "board.h"
+#include "dashboard.h"
 #include "esp_log.h"
 #include "esp_lv_adapter.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "main";
-
-static void battery_timer_cb(lv_timer_t *t)
-{
-    lv_obj_t *label = lv_timer_get_user_data(t);
-    uint32_t mv;
-    if (board_battery_mv(&mv) == ESP_OK) {
-        lv_label_set_text_fmt(label, "BAT %lu.%02lu V", mv / 1000, (mv % 1000) / 10);
-    }
-}
-
-static void build_ui(void)
-{
-    lv_obj_t *scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
-
-    lv_obj_t *title = lv_label_create(scr);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_48, 0);
-    lv_obj_set_style_text_color(title, lv_color_white(), 0);
-    lv_label_set_text(title, "dashboard");
-    lv_obj_center(title);
-
-    lv_obj_t *bat = lv_label_create(scr);
-    lv_obj_set_style_text_color(bat, lv_palette_main(LV_PALETTE_GREY), 0);
-    lv_label_set_text(bat, "BAT --");
-    lv_obj_align(bat, LV_ALIGN_BOTTOM_RIGHT, -16, -16);
-    lv_timer_create(battery_timer_cb, 1000, bat);
-}
 
 void app_main(void)
 {
@@ -61,7 +36,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lv_adapter_start());
 
     ESP_ERROR_CHECK(esp_lv_adapter_lock(-1));
-    build_ui();
+    dashboard_create();
+#if CONFIG_DASH_DEMO
+    dashboard_demo_start();
+#endif
     esp_lv_adapter_unlock();
 
     ESP_ERROR_CHECK(board_backlight_set(100));
