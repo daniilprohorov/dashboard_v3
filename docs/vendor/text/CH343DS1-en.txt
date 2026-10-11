@@ -1,0 +1,476 @@
+CH343 Datasheet                                        1
+
+
+                       USB to High-Speed Serial Chip CH343
+                                                 Datasheet
+                                                Version: 1E
+                                               http://wch.cn
+1. Introduction
+CH343 is a USB bus converter chip, which converts USB to high-speed serial UART interface , supports
+automatic identification and dynamic adaptation of communication baud rate of 115200bps and below,
+provides common MODEM signal, to expand serial UART interface of computer or upgrade common serial
+devices or MCU to USB bus directly.
+
+
+                                    VDD5                           VIO
+           Computer                               CH343
+            or other                              convert
+           USB host            UD+、UD-             chip
+                                                                    UART/RS232/RS485
+
+
+
+
+2. Features
+    l Full-speed USB device interface, USB 2.0 compatible.
+    l Built-in firmware , emulate standard UART interface, used to upgrade the original serial peripherals
+         or expand additional serial UART via USB.
+    l Original serial applications are totally compatible without any modification.
+    l Supports free installation OS which built-in CDC driver or multifunctional high-speed VCP vendor
+         driver.
+    l Hardware full-duplex serial UART interface, integrated independent transmit-receive buffer,
+         supports communication baud rate varies from 50bps to 6Mbps.
+    l Supports automatic identification and dynamic adaptation of common communication baud rate of
+         115200bps and below.
+    l Supports 5, 6, 7 or 8 data bits, supports odd, even, space, mark and no parity.
+    l Supports common MODEM interface signals RTS, DTR, DCD, RI, DSR and CTS.
+    l Supports CTS and RTS hardware automatic flow control.
+    l Supports half-duplex, provides sending status TNOW which support RS485 to switch.
+    l Supports RS232 interface, through external voltage conversion chip.
+    l Supports USB port 5V and 3.3V power supply.
+    l I/O independent power supply, supports 5V, 3.3V, 2. 5 V and 1.8V power supply.
+    l Integrated power-on reset, integrated 12MHz clock, no external crystal required.
+    l CH343P integrates EEPROM used to configure the chip of VID, PID, maximum current value ,
+         vendor and product information string, etc.
+    l    Chip has integrated Unique ID (USB Serial Number).
+    l    RoHS compliant SOP-16, ESSOP-10 and QFN16 lead-free package.
+ CH343 Datasheet                                           2
+
+ 3. Packages
+
+
+
+
+                                                                                                       Ordering
+ Package     Width Of Plastic        Pitch Of Pin                  Instruction Of Package
+                                                                                                     Information
+
+ SOP16       3.9mm        150mil 1.27mm       50mil Small outline 16-pin patch                        CH343G
+                                                       Shrink Small outline 10-pin patch with
+ESSOP10      3.9mm        150mil 1.00mm       39mil                                                   CH343K
+                                                       backplane
+QFN16-3X3    3*3mm                  0.5mm 19.7mil Square leadless 16-pin                               CH343P
+
+ Note: The backplane of the CH343K and CH343P is 0# pin GND, which is an optional but recommended
+ connection; other GND are necessary connections.
+
+ USB transceiver of CH344 is designed in accordance with the USB2.0 full built-in design, UD+ and UD- pin
+ cannot connect with resistor in serial, otherwise it will affect the signal quality.
+
+ 4. Pin Out
+     SOP16 ESSOP10 QFN16                 Pin         Pin
+                                                                              Pin Description
+     Pin No. Pin No. Pin No.            Name        Type
+                                                               Power supply voltage input of power regulator,
+        16          4           3       VDD5     POWER
+                                                               requires an external decoupling capacitor
+                                                               I/O port power input, requires an external
+        15          7           1        VIO     POWER
+                                                               decoupling capacitor
+         1         3, 0       2, 0      GND      POWER Ground
+                                                       Internal power regulator output, core and USB
+                                                       power input, connect to VDD5 when VDD5 is
+         4         10           6        V3      POWER
+                                                       less than 3.6V, connect to decoupling capacitor
+                                                       when VDD5 is more than 3.6V
+                                                               Input of external reset, active low, integrated
+      NONE      NONE         NONE        RST          IN
+                                                               pull-up resistor
+                                                     USB       Connect to USB D+ Signal directly, no
+         5          1           7        UD+
+                                                    signal     external resistor
+
+                                                     USB       Connect to USB D- Signal directly, no external
+         6          2           8        UD-
+                                                    signal     resistor
+
+                                                               VBUS status detection input of USB bus,
+         7      NONE            9       VBUS          IN
+                                                               integrated pull-down resistor
+CH343 Datasheet                              3
+
+                                                 Transmit asynchronous data output, idle state
+      2           8       4    TXD     OUT
+                                                 is high level
+                                                 Receive asynchronous data input, integrated
+      3           9       5    RXD      IN
+                                                 pull-up resistor
+      13                  15   CTS      IN       MODEM input signal, clear to send, active low
+
+                                       Default
+                                       input,
+                                               Default is MODEM input signal, clear to send,
+                               CTS     switch active low, when computer software setting
+                  6             or       to    DTR is valid, automatically switch to
+                               DTR     output MODEM output signal, data terminal ready,
+                                               active low
+                                      automati
+                                        cally
+                                                 MODEM input signal, data set ready, active
+      12     NONE         14   DSR      IN
+                                                 low
+                                                 MODEM input signal, ring indicator , active
+      14     NONE         16    RI      IN
+                                                 low
+                                                 MODEM input signal, data carrier detect,
+      9      NONE         11   DCD      IN
+                                                 active low
+                                                 MODEM output signal, data terminal ready,
+                                DTR              active low, if an external pull-down resistor is
+      10     NONE         12           OUT       detected during power-on, switch to a status
+                               TNOW              indication about the serial port sending is in
+                                                 progress, active high
+                                                 MODEM output signal, request to send, active
+      11          5       13   RTS     OUT
+                                                 low
+                                                 USB configuration completed state output,
+                                                 active low, if an external pull-down resistor is
+      8      NONE         10   ACT#    OUT       detected during power-on, switch to
+                                                 communication        baud      rate    adaptive
+                                                 mode ,software can also use this mode
+
+
+5. Function Descriptions
+5.1. Internal Structure
+CH343 Datasheet                                       4
+
+
+
+
+5.2. Power and Power Consumption
+
+CH343 has 3 power supplies, built-in power regulator that generates 3.3V. VDD5 is the input of power
+regulator, V3 is the output of power regulator and USB transceiver and core power supply input, and VIO is
+the I/O pin power supply.
+
+CH343 supports 5V or 3.3V supply voltage, the V3 pin should be connected to an external power decoupling
+capacitor of about 0.1uF. When using 5V power supply(more than 3.8V), VDD5 inputs external 5V power
+supply (for example, the USB bus power supply), the internal power regulator generates 3.3V on V3 which
+used by USB transceiver. When using 3.3V or lower operating voltage (less than 3.6V), V3 should be
+connected to VDD5, input external 3.3V power supply simultaneously. V3 still requires an external
+decoupling capacitor.
+
+The VIO pin of CH343 is used to provide I/O power for I/O and RST pin and supports 1.8V~5V supply
+voltage. VIO、MCU and other peripherals should use the same power supply. UD+、 UD- and VBUS pin use
+V3 power supply, not use VIO.
+
+CH343 automatically supports USB device suspension to save power consumption. In the USB suspend state,
+if the I/O output pin has no external load, the I/O input pin is floating (internal pull-up) or in a high level
+state, the VIO power supply will not consume current. In addition, when V3 and VDD5 lose power and are
+at 0V, the current consumption of VIO is the same as above, and VIO will not flow backwards current to
+VDD5 or V3.
+
+VBUS should be connected to USB bus power supply, and when the loss of USB power is detected, CH343
+will turn off the USB and sleep (suspend). CH343K has no VBUS pin, so assuming it always has been USB
+power, the integrated pull-down resistor of VBUS pin can be controlled by computer software which setting
+OUT1 signal of MCR serial register (SERIAL_IOC_MCR_OUT1). Turning on the pull-down resistor When
+OUT1 is invalid (default status) or turn off it When OUT1 is valid.
+CH343 Datasheet                                        5
+
+CH343 provides VIO low-voltage protection mechanism when VBUS connects resistor in series to control
+VIO power through PMOS. During the shutdown of the VBUS pull-down resistor, if VIO voltage is lower
+than about 1.4V which is detected, then CH343 will automatically absorb about 300uA discharge current on
+VBUS, until the VIO voltage rises and the discharge current finished, starting the pull-down resistor
+automatically.
+
+Several power connection schemes for reference here:
+
+                 UART signals                                                        MCU or peripheral power
+                                        VDD5               V3             VIO
+ Power supply    voltage                                                                     supply
+   scheme        MCU operating       Not less than     Rated around       Both use the same power supply,
+                 voltage              V3 voltage           3.3V                      1.8V～5V
+
+                                    USB powered       Connects to
+                        5V                                                       USB powered 5V
+                                        5V           capacitor only
+
+                                    USB powered        Connects to
+                        3.3V                                               V3 powered 3.3V, up to 10mA
+                                        5V              capacitor
+All USB power
+    supply                          USB powered 5V stepped down to 3.3V via external LDO power regulator,
+                        3.3V
+                                                      V3 connects to external capacitor
+
+                                    USB powered       Connects to       USB powered, step-down via external
+                    1.8V～4V
+                                        5V           capacitor only              LDO regulator
+
+     USB+
+ self-powered
+                                    USB powered       Connects to             Self-powered 1.8V～5V
+  Dual power        1.8V～5V
+                                        5V           capacitor only             (1.8V,2.5V,3.3V,5V)
+     supply
+
+
+                                     Self-powered     Connects to
+                       4V～5V                                                    Self-powered 4V～5V
+      All                              4V～5V         capacitor only
+ self-powered                          Self-powered, rated 3.3V,
+                    1.8V～5V                                                   Self-powered 1.8V～5V
+                                     connects to external capacitor
+
+Recommended dual-power supply scheme, only VIO and MCU use the same power supply, low-current
+consumption.VIO current is only 2uA when USB suspend/sleep
+
+
+5.3. UART
+
+In serial UART mode, CH343 contains: data transfer pins, MODEM interface signals and assistant pins.
+
+Data transfer pins contain: TXD and RXD. RXD is high when UART input is idle. TXD is high when
+UART output is idle.
+
+MODEM interface signals contain: CTS, DSR, RI, DCD, DTR and RTS. All these MODEM interface
+signals are controlled and function defined by computer applications.
+
+The DTR pin of CH343 is used as a configuration input pin during power-up and reset. It can be connected
+CH343 Datasheet                                       6
+
+
+to 4.7KΩ(3～8KΩ)external pull-up resistor to generate a default low level , so that the serial port enters the
+half-duplex mode and switching the original DTR pin to TNOW pin to indicate that the serial port is sending
+data. In half-duplex mode, TNOW can directly control the receiving and sending switch of RS485
+transceiver.
+
+The CTS/DTR pin of CH343K is automatically switched from CTS to DTR (the default idle status is high
+level) when the computer software setting DTR is valid, and remains DTR output until the chip is
+re-powered on or reset. The DTR does not support the half-duplex mode input.
+
+Assistant pins contain: ACT#. The ACT# pin is output of the USB device configuration completion status,
+which can be used to notify MCU or drive LED connected to VIO after connecting the current limiting
+resistor in series. The ACT# pin is used as a configuration input pin during power-up and reset. It can be
+connected to 4.7KΩ(3～8KΩ)external pull-up resistor to generate a default low level ,so that the serial port
+enters the communication baud rate self-adaption mode ,which can automatically and dynamically identify
+common communication baud rate of 115200bps and below. It mainly supports common communication
+baud rate: 300, 600, 900, 1200, 1800, 2400, 3600, 4800, 9600, 14400, 19200, 28800, 33600, 38400, 56000,
+57600, 115200, etc. Special high-speed communication baud rate: 10K, 20K, 30K, 50K, 100K, 150K, 250K,
+300K, 500K, etc.
+
+The UART of CH343 supports CTS and RTS hardware automatic flow control, which can be enabled by
+software. If enabled, UART only will continue to send the next data only when CTS input is valid (active
+low), otherwise the UART transmission will be stopped; UART will automatically set RTS to be valid
+(active low) when the receiving buffer is empty, it will automatically invalidate RTS until the data in the
+receiving buffer is nearly full, and RTS will be valid again when the buffer is empty. While using hardware
+automatic flow control, CTS of CH343 should connect to RTS of the counterpart, and RTS of CH343 should
+connect to CTS of the counterpart.
+
+CH343 has integrated separate transmit-receive buffer and supports simplex, half-duplex and full-duplex
+UART communication. Serial data contains one low-level start bit, 5, 6, 7 or 8 data bits and 1 or 2 high-level
+stop bits, supports odd/even/mark/space parity. CH343 supports common baud rate: 50, 75, 100, 110, 134.5,
+150, 300, 600, 900, 1200, 1800, 2400, 3600, 4800, 9600, 14400, 19200, 28800, 33600, 38400, 56000, 57600,
+76800, 115200, 128000, 153600, 230400, 256000, 460800, 921600, 1M, 1.5M, 2M, 3M, 4M, 6M etc.
+
+In applications with higher communication baud rate, it is recommended to enable hardware automatic flow
+control. Full-speed USB is only 12Mbps, considering the protocol overhead and other factors, in practical
+applications, the serial port should be avoided in a continuous or full-duplex of 3Mbps and above high-speed
+communication status.
+
+The allowable baud rate error of CH343 UART receiving signal is less than 2%, the baud rate error of UART
+transmitting signal is less than 1.5%.
+
+In the Windows OS, CH343 supports CDC driver that comes with system, and can install VCP vendor driver
+that supports high-speed communication. It can emulate standard serial port. So the mostly original serial
+applications are totally compatible, without any modification.
+CH343 Datasheet                                         7
+
+
+CH343 can be used to upgrade the original UART peripherals, or expand extra serial port for computers via
+USB bus, through external level shifting chip provides RS232, RS485, RS422 and other interface can be
+further.
+
+5.4. Clock , Reset and Others
+CH343 has a built-in USB pull-up resistor, and the UD+ and UD- pins should be directly connected to the
+USB bus.
+
+CH343 has built-in power-on reset circuit and low-voltage reset circuit. It also monitors the voltage of the
+V3 pin and the VIO pin. When the voltage V3 is lower than VRV3 or the VIO is lower than VRVIO, the chip
+will automatically reset hardware.
+
+CH343 has built-in clock generator, without external crystal and oscillation capacitor.
+
+
+5.5. Parameter Configuration
+In larger batch applications, the vendor VID and product identification PID of CH343 and product
+information can be customized.
+In less batch applications, it can use CH343 that built-in EEPROM. After user installs VCP vendor driver,
+through configuration tool CH343xSerCfg.exe provided by chip manufacturer, it can be flexibly configured
+the vendor VID, product identification PID, maximum current, BCD version number, vendor information
+and product information string descriptor, etc.
+
+
+6. Parameters
+6.1. Absolute Maximum Ratings
+
+(critical state or exceeding maximum can cause chip to not work or even be damaged)
+
+ Name                            Parameter Description                            Min.     Max.      Unit
+  TA                        Operating Ambient Temperature                          -40      85        ℃
+  TS                              Storage Temperature                              -55      125       ℃
+VDD5       USB Supply Voltage(VDD5 connects to power, GND to ground)              -0.5      6.0        V
+ VIO         I/O Supply Voltage(VIO connects to power, GND to ground)             -0.5      6.0        V
+VVBUS                                VBUS Voltage                                 -0.5      6.5        V
+VUSB                              USB Signal Voltage                              -0.5    V3+0.5       V
+VUART                         UART And Others Voltage                             -0.5    VIO+0.5      V
+
+
+6.2. Electrical Parameters
+(test conditions: TA=25℃,VDD5=5V or VDD5=V3=3.3V, VIO=1.8V~5V, exclude USB pin)
+CH343 Datasheet                                      8
+
+
+
+ Name                     Parameter Description                 Min.      Typ.     Max.   Unit
+                           V3 doesn’t connect to VDD5, V3
+          USB supply                                             4.0       5       5.5
+ VDD5                          connected to capacitor                                      V
+           voltage
+                          V3 connected to VDD5, VDD5=V3          3.0       3.3     3.6
+
+  VIO          Serial port and other I/O supply voltage          1.7       5       5.5     V
+
+ IVDD             Operating VDD5 or V3 supply current                      3        15    mA
+  IVIO     Operating VIO supply current(depend on load)                    0       (10)   mA
+                                VDD5 power supply =5V                     0.09     0.16   mA
+           Suspending
+  ISLP     USB supply        VDD5=V3 power supply =3.3V                   0.085    0.15   mA
+             current            VIO power supply, no I/O
+                                                                          0.002    0.05   mA
+                                      load/pull up
+
+ ILDO     External load capacity of internal power regulator                        10    mA
+
+                                               VIO=5V            0                 1.5     V
+  VIL     Low-level input voltage              VIO=3.3V          0                 0.9     V
+                                               VIO=1.8V          0                 0.5     V
+                                               VIO=5V            2.5               VIO     V
+  VIH     High-level input voltage             VIO=3.3V          1.9               VIO     V
+                                               VIO=1.8V          1.3               VIO     V
+VIHVBS VBUS high level voltage            VIO=1.8～5V             1.7               5.8     V
+                              VIO=5V, draw 15mA current                    0.4     0.5     V
+           Output low
+  VOL                         VIO=3.3V, draw 8mA current                   0.3     0.4     V
+            voltage
+                              VIO=1.8V, draw 3mA current                   0.3     0.4     V
+                              VIO=5V, output 10mA current      VIO-0.5   VIO-0.4           V
+           Output high
+  VOH      voltage, not      VIO=3.3V, output 5mA current      VIO-0.4   VIO-0.3           V
+           reset status
+                             VIO=1.8V, output 2mA current      VIO-0.4   VIO-0.3           V
+                                                   VIO=5V        35       150      220    uA
+          Pull-up current of serial port and
+  IPUP                                            VIO=3.3V       15        60       90    uA
+           RST (pull-up to VIO voltage)
+                                                  VIO=1.8V       3         14       21    uA
+                                                  VBUS>1.6V      6         10       16    uA
+  IPDN       Pull-down current of VBUS
+                                                  VBUS<1.3V      50       140      200    uA
+             V3 Power-on reset/low voltage reset voltage
+ VRV3                                                            2.5       2.7     2.9     V
+                             threshold
+             VIO power supply low voltage reset voltage
+ VRVIO                                                           0.8       1.0     1.15    V
+                            threshold
+ VESD        HBM ESD withstand voltage of USB or I/O             5          6             KV
+CH343 Datasheet                                        9
+
+6.3. Timing Parameters
+(test conditions: TA=25℃,VDD5=5V or VDD5=V3=3.3V, VIO=1.8V～5V)
+
+     Name                    Parameter Description                  Min.      Typ.       Max.       Unit
+            Error of internal clock (influence   TA=-15℃～60℃        -1.0      ± 0.5       +1.0       %
+     FD
+                baud rate comparatively)         TA=-40℃～85℃        -1.5      ± 0.8       +1.5       %
+ TRSTD         Reset delay after power on or external reset input     9        15          25        mS
+ TSUSP               Detect USB automatic suspend time                3         5          9         mS
+TWAKE              Wake-up completion time after chip sleep          1.2       1.5         5         uS
+
+
+7. Applications
+7.1. USB to 9-wire TTL Converter Configuration
+
+
+
+
+The image above is the USB to TTL converter realized by CH343G. The signal in the image can only be
+connected to RXD, TXD and public ground, while using the others as needed, all can be suspended when not
+needed.
+
+P4 is USB port, USB bus contains a pair of 5V power lines and a pair of data signals. Usually, the color of
++5V power line is red, the black is ground. D+ signal line is green and the D- is white. The supply current
+provided by USB bus is up to 500mA.The VBUS pin detects the power supply status of USB here.
+
+Three power supply schemes: The first is all USB powered supply. CH343 chip and USB products directly
+use the 5V power supply provided by the USB bus, that is, VDD5=VBUS=USB 5V power,
+VIO=VMCU=USB 5V or 1.8V~4V after step-down; The second is separate and independent power supply.
+The VIO of CH343 and the MCU of the product use self- standing power VDD, while CH343 uses USB
+power, and VDD5 is connected to the USB power VBUS, that is, VDD5=VBUS=USB 5V power,
+VIO=VMCU=VDD=self- powered 1.8V~5V; The third is all self-powered, only detecting but not using
+USB power, USB product provides standing power VDD through self-powered mode, mainly contain two
+ways: VDD5=VIO=VMCU=VDD=self- powered 5V or VDD5=V3=VIO=VMCU=VDD=self- powered 3.3
+V.
+
+The capacitor C7 on V3 is 0.1uF, used to CH343 internal power node decoupling. C8 and C9 are used for
+external power decoupling.
+
+When designing the PCB, pay attention to: decoupling capacitor C7,C8 and C9 get as close to the connected
+pins of CH343 as possible; Enabling the D+ and D- signal lines close to the parallel wiring, and providing
+CH343 Datasheet                                      10
+
+ground or copper on both sides to reduce signal interference from the outside.
+
+7.2. USB to RS232 Converter Configuration (9-wire)
+CH343G provides common UART and MODEM signals, converts TTL to RS232 through external level
+shifting chip U2. P2 Port is DB9, the pins and functions are the same as common DB9 of PC. The chips
+similar with U2 have MAX213/ADM213/SP213/MAX211 etc.U2 uniformly powered by the USB bus
+through R4.
+
+
+
+
+7.3. USB to RS485 Converter Configuration
+
+
+
+
+In the image, DTR connects to external pull-down resistor, therefore switching to TNOW which can be used
+to control DE (high active send enable) and RE# (low active receive enable) pin of RS485 transceiver.
+
+
+7.4. Connect CH343 to MCU and Supply Power Separately
+
+
+
+
+The image above shows the reference circuit that the MCU connect to CH343 through TTL to realize USB
+communication in dual power supply mode. VBUS is powered by CH343 through USB bus, the MCU and
+VIO use another self-powered VDD, which supports 5V, 3.3V or even 2.5V, 1.8V.
+
+Excepting RXD and TXD, other pins are optional connections.
+
+If the serial port speed is higher, the MCU can realize hardware flow control through CTS and RTS.
+CH343 Datasheet                                    11
+
+If needed, VBUS (OUT1) also used to control PMOS power switch that VBUS supplies power to MCU.As
+show below: +5 is USB power, VDD is VIO and MCU power of CH343. In default, the pull-down resistor of
+VBUS is turned on and generated a pull-down current, enabling the PMOS grid has enough voltage to turn
+on, and VBUS supplies power to VIO. After the computer software has set RTS and CTS, setting OUT1 is
+valid; then the pull-down resistor of VBUS is turned off, finally, the VIO drops voltage, which result MCU
+low voltage reset. When the VIO voltage drops to about 1.4V, low-voltage protection mechanism of VIO is
+triggered, VBUS automatically absorbs the pull-down current and regains the pull-down resistor, enabling
+PMOS is turned on again and resuming the supply power of the VIO. The whole process has achieved VIO
+step-down and MCU reset. The luminous tube D1 is used to prevent the VBUS voltage being too low. In
+addition, connecting a series diode between Q1 and VDD can prevent VDD from flowing back to+5.
+

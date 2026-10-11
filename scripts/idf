@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# idf.py with the pinned ESP-IDF environment; usable from any fresh shell.
+#   scripts/idf build | scripts/idf -p /dev/cu.wchusbserial* flash monitor
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/scripts/env.sh"
+[ -f "$IDF_PATH/export.sh" ] || { echo "ESP-IDF missing at $IDF_PATH; run scripts/setup.sh" >&2; exit 1; }
+source "$IDF_PATH/export.sh" >/dev/null
+cd "$ROOT"
+exec idf.py "$@"

@@ -1,0 +1,1227 @@
+                       Datasheet
+                                    Goodix
+                                        GT911
+
+
+
+
+The information contained in this document has been carefully researched and is, to the best
+of our knowledge, accurate. However, we assume no liability for any product failures or
+damages, immediate or consequential, resulting from the use of the information provided
+herein. Our products are not intended for use in systems in which failures of product could
+result in personal injury. All trademarks mentioned herein are property of their respective
+owners. All specifications are subject to change without notice.
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+ GT911
+ 5-Point Capacitive Touch Controller for
+ Small-Sized MID
+
+ Rev.09——March 11, 2015
+
+
+
+
+====== Disclaimer ======
+
+The information concerning the device in this publication is intended for you only and is subject
+to change without prior notice. It is your responsibility to ensure its application complies with
+technical specifications. Shenzhen Huiding Technology Co., Ltd. (hereafter referred to as
+“GOODIX”) makes no representation or guarantee for this information, either expressed or
+implied, written or verbal, statutory or otherwise including but not limited to representation or
+guarantee for its application, quality, performance, merchantability or fitness for a particular
+purpose. GOODIX shall assume no responsibility for this information and relevant consequences
+arising out of the use of such information. Without written consent of GOODIX, it is prohibited to
+use GOODIX products as critical components in any life support system. This document conveys
+no licenses, implicitly or otherwise, to any intellectual property rights belonging to GOODIX or
+any other entities.
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    1
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+                                                                  Contents
+1.    Overview........................................................................................................................................................ 4
+
+2.    Features.........................................................................................................................................................4
+
+3.    Block Diagram...............................................................................................................................................5
+
+4.    Pin Configurations........................................................................................................................................6
+
+5.    Sensor Design.............................................................................................................................................. 7
+
+5.1          Layout of Rx Channels........................................................................................................................7
+
+5.2          Layout of Tx Channels........................................................................................................................ 7
+
+5.3          Sensor Design Specifications............................................................................................................ 7
+
+5.4          Touch Key Design................................................................................................................................ 8
+
+6.    I2C Communication...................................................................................................................................... 9
+
+      6.1         I2C Timing.......................................................................................................................................... 9
+
+             a)      Data Transmission..................................................................................................................... 11
+
+             b)      Writing Data to GT911............................................................................................................... 11
+
+             c)      Reading Data from GT911....................................................................................................... 12
+
+7.    HotKnot Mode.............................................................................................................................................13
+
+7.1          Start HotKnot...................................................................................................................................... 13
+
+7.2          Data Transmission between TPs.....................................................................................................13
+
+7.3          Host Receives Data from GT911.....................................................................................................13
+
+8.    Description on Functions.......................................................................................................................... 14
+
+      8.1         Operating Modes............................................................................................................................14
+
+             a)      Normal Mode.............................................................................................................................. 14
+
+             b)      Green Mode................................................................................................................................ 15
+
+             c)      Gesture Mode.............................................................................................................................15
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                                                 2
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+             d)      Sleep Mode.................................................................................................................................15
+
+             e)      Approach Mode..........................................................................................................................15
+
+             f)      Receive Mode.............................................................................................................................16
+
+             g)      Send Mode..................................................................................................................................16
+
+      8.2         Interrupt Triggering Mechanism...................................................................................................16
+
+      8.3         Sleep Mode.....................................................................................................................................17
+
+      8.4         Stationary Configuration............................................................................................................... 17
+
+      8.5         Adaptive Frequency Hopping...................................................................................................... 17
+
+      8.6         Self-calibration................................................................................................................................17
+
+             a)      Self-calibration during Initialization......................................................................................... 17
+
+             b)      Automatic Drift Compensation.................................................................................................17
+
+9.    Sample Schematic.....................................................................................................................................18
+
+10.          Electrical Characteristics.................................................................................................................. 19
+
+      10.1        Absolute Maximum Ratings......................................................................................................... 19
+
+      10.2        Recommended Operating Conditions........................................................................................ 19
+
+      10.3        AC Electrical Characteristics........................................................................................................19
+
+      10.4        DC Electrical Characteristics....................................................................................................... 20
+
+11.          Package...............................................................................................................................................21
+
+12.          Revision History................................................................................................................................. 22
+
+13.          Contact Information........................................................................................................................... 23
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                                               3
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+1.Overview
+GT911, a new-generation 5-point capacitive touch solution designed for 7” to 8” MID, consists of up to
+26 Transmitter electrodes and 14 Receiver electrodes to provide higher touch accuracy.
+
+GT911 supports up to 5 concurrent touches with real-time tracking of accurate position and motion
+trajectory as well as touch area. Furthermore, it is able to report such information to the host as
+required.
+
+
+
+2.Features
+      Built-in capacitive sensing circuit and high-performance MPU
+
+                  Report rate: 100Hz
+                  Outputs touch coordinates in real time
+                  Unified software applicable to capacitive touch screens of various sizes
+                  Single power supply, internal 1.8V LDO
+                  Flash embedded; In-system reprogrammable
+                  HotKnot integrated
+
+      Capacitive touch sensor
+
+                  Channels: 26 (Tx channels)*14 (Rx channels)
+                  Supports capacitive touch screen sizes: 7” to 8”
+                  Supports touch key design on FPC
+                  Supports ITO glass and ITO Film
+                  Cover Lens thickness supported: 0.55mm ≦ Glass ≦ 2mm,
+                                                    0.5mm ≦PMMA ≦ 1.2mm,
+                                           (For detail, please refer to Sensor Design Guidelines)
+                  Adaptive frequency hopping
+                  Supports OGS full lamination
+
+      HotKnot
+
+                     Transmission rate：7.0Kbps(max)
+                     Data frame maximum capacity：128 bytes
+                     Applicable sensor types: OGS/traditional GFF/GG/GF
+
+      Environmental adaptability
+
+                  Self-calibration during initialization
+                  Automatic drift compensation
+                  Operating temperature: -40℃ to +85℃; humidity: ≦95%RH
+                  Storage temperature: -60℃ to +125℃; humidity: ≦95%RH
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    4
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+      Host interface
+
+                  Standard I2C interface
+                  Works in slave mode
+                  Supports 1.8V to 3.3V host interface voltage
+
+      Response time
+
+                  Green mode: <48ms
+                  Sleep mode: <200ms
+                  Initialization: <200ms
+
+      Power supply voltage:
+
+                  Single supply: 2.8V to 3.3V
+
+      Power supply ripple:
+
+                  Vpp≦50mV
+
+      Package: 52 pins, 6mm*6mm*0.8mm, QFN 0.4mm Pitch
+
+      Tools provided to support application development:
+
+                  Touch panel module parameter detector and auto-generator
+                  Touch panel module performance test tool
+                  MP Test Tool
+                  Reference driver code and documentary guide for host software development
+
+
+
+3.Block Diagram
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    5
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+4.Pin Configurations
+
+
+
+
+        Pin No.                Name                   Function description                      Remarks
+                                                                                    Output drive signal while HotKnot
+          1~11           SEN3 to SEN13                 Receiver electrodes
+                                                                                              function is on
+
+           12                AVDD28                        Analog power               2.2uF filter capacitor to GND
+
+           13                AVDD18                                                   2.2uF filter capacitor to GND
+
+           14                DVDD12                                                   2.2uF filter capacitor to GND
+
+           15                 DGND                     Digital signal ground
+
+           16                   INT                       Interrupt signal
+                          Sensor_OPT1                      Module ID pin                  Register configurable
+           17
+           18             Sensor_OPT2                      Module ID pin           External pull-down resistor required
+                                                           2
+           19                I2C_SDA                      I C data signal
+
+           20                I2C_SCL                      I2C clock signal
+                                                                                      2.2uF filter capacitor to GND
+           21                 VDDIO                  Supply voltage of GPIO                   Floating: 1.8V
+                                                                                        Connect to AVDD: AVDD
+                                                                                      External 10K pull-up resistor
+           22                 /RSTB                            Reset pin
+                                                                                        required, active-low reset
+         23~48           DRV25 to DRV0                Transmitter electrodes
+
+           49                 AGND                     Analog signal ground
+
+                                                                                    Output drive signal while HotKnot
+         50~52           SEN0 to SEN2                  Receiver electrodes
+                                                                                              function is on
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                               6
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+5.Sensor Design
+5.1 Layout of Rx Channels
+SENS0 to SENS13 are 14 Rx channels on the chip directly connected to 14 ITO Rx channels on the
+ sensor either in sequence or reverse sequence. Please refer to the tool GT9 Series Channel
+ Selector for channel selection when there are less ITO Rx channels on the sensor than Rx channels
+ on the chip.
+
+Sample Layout: the ITO Rx channels on the sensor are connected to the Rx channels on the chip in
+sequence from SENS0 to SENS13:
+
+
+
+
+5.2 Layout of Tx Channels
+DRV0 to DRV25 are 26 Tx channels on the chip directly connected to 26 ITO Tx channels on the
+sensor. Please refer to the tool GT9 Series Channel Selector for channel selection and assignment.
+
+After the layout of the Tx channels is determined, relevant registers of GT911 shall be configured to
+ensure logic positions of Tx channels are consistent with their physical positions, so that the reported
+coordinates match the physical coordinates.
+
+For details of sensor design, please refer to layout guidelines.
+
+
+5.3 Sensor Design Specifications
+                                                                    DITO Limit   SITO Limit
+                   Tx Trace Impedance                                 ≦3KΩ        ≦3KΩ
+                 Tx Channel Impedance                                ≦10KΩ        ≦10KΩ
+                   Rx Trace Impedance                                ≦10KΩ        ≦10KΩ
+                 Rx Channel Impedance                                ≦40KΩ        ≦10KΩ
+                     Node capacitance                                 ≦4pF         ≦4pF
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                             7
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+Note:
+
+        1) For detailed sensor design specifications, please refer to Sensor Design Guidelines of
+           Goodix.
+
+        2) When metal traces are employed for routing, some traces may be oxidized due to process
+           control or other reasons and their impedance will become larger, making the impedance
+           vary between traces. When ITO are employed for routing, though we’ve done our utmost to
+           obtain impedance consistency by using matched length and width in design, there are still
+           differences. To ensure data consistency and uniformity on the entire screen, it is necessary
+           to ensure the sensor design complies with the above requirements.
+
+        3) In addition, when Tx trace and Rx trace are adjacent and parallel to each other, separate the
+           traces with a ground trace. For ground trace width, please refer to Sensor Design Guidelines.
+           Note that ground trace width should not be less than 0.2mm.
+
+
+5.4      Touch Key Design
+
+GT911 supports at most 4 separated touch keys in the following two ways:
+
+1) Rx channel extension: Take one Tx channel as a common port for the touch keys and connect
+                   the Tx channel to four Rx channels to enable four touch keys. The touch
+                   keys must not share their Tx channel with the touch screen. However, Rx
+                   channels have to be shared.
+
+2) Touch key design on FPC: Connect one separate Tx channel to four Rx channels to enable
+                   four touch keys. The touch keys have to share their Rx channels with the
+                   touch screen.
+
+                            Touch key pattern on FPC should be designed independently.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    8
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+6.I2C Communication
+
+6.1      I2C Timing
+
+    GT911 provides a standard I2C interface for SCL and SDA to communicate with the host. GT911
+    always serves as slave device in the system with all communication being initialized by the host.
+    It is strongly recommended that transmission rate be kept at or below 400Kbps. The I2C timing is
+    shown below:
+
+
+
+
+Test condition 1: 1.8V host interface voltage, 400Kbps transmission rate, 2K pull-up resistor
+
+      Parameter                                                     Symbol     Min.       Max.   Unit
+      SCL low period                                                tlo        1.3        -      us
+      SCL high period                                               thi        0.6        -      us
+      SCL setup time for Start condition                            tst1       0.6        -      us
+      SCL setup time for Stop condition                             tst3       0.6        -      us
+      SCL hold time for Start condition                             thd1       0.6        -      us
+      SDA setup time                                                tst2       0.1        -      us
+      SDA hold time                                                 thd2       0          -      us
+
+Test condition 2: 3.3V host interface voltage, 400Kbps transmission rate, 2K pull-up resistor
+
+      Parameter                                                     Symbol     Min.   Max.       Unit
+      SCL low period                                                tlo        1.3    -          us
+      SCL high period                                               thi        0.6    -          us
+      SCL setup time for Start condition                            tst1       0.6    -          us
+      SCL setup time for Stop condition                             tst3       0.6    -          us
+      SCL hold time for Start condition                             thd1       0.6    -          us
+      SDA setup time                                                tst2       0.1    -          us
+      SDA hold time                                                 thd2       0      -          us
+
+GT911 supports two I2C slave addresses: 0xBA/0xBB and 0x28/0x29. The host can select the
+address by changing the status of Reset and INT pins during the power-on initialization phase. See
+the diagram below for configuration methods and timings:
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                           9
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+Power-on Timing:
+
+
+
+
+Timing for host resetting GT911:
+
+
+
+
+Timing for setting slave address to 0x28/0x29:
+
+
+
+
+Timing for setting slave address to 0xBA/0xBB:
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    10
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+a) Data Transmission
+
+(For example：device address is 0xBA/0xBB)
+
+Communication is always initiated by the host. Valid Start condition is signaled by pulling SDA line
+from “high” to “low” when SCL line is “high”. Data flow or address is transmitted after the Start
+condition.
+
+All slave devices connected to I2C bus should detect the 8-bit address issued after Start condition and
+send the correct ACK. After receiving matching address, GT911 acknowledges by configuring SDA
+line as output port and pulling SDA line low during the ninth SCL cycle. When receiving unmatched
+address, namely, not 0XBA or 0XBB, GT911 will stay in an idle state.
+
+For data bytes on SDA, each of 9 serial bits will be sent on nine SCL cycles. Each data byte consists
+of 8 valid data bits and one ACK or NACK bit sent by the recipient. The data transmission is valid
+when SCL line is “high”.
+
+When communication is completed, the host will issue the STOP condition. Stop condition implies the
+transition of SDA line from “low” to “high” when SCL line is “high”.
+
+b) Writing Data to GT911
+
+ (For example：device address is 0xBA/0xBB)
+
+
+
+
+                                                     Timing for Write Operation
+
+The diagram above displays the timing sequence of the host writing data onto GT911. First, the host
+issues a Start condition. Then, the host sends 0XBA (address bits and R/W bit; R/W bit as 0 indicates
+Write operation) to the slave device.
+
+After receiving ACK, the host sends the 16-bit register address (where writing starts) and the 8-bit
+data bytes (to be written onto the register).
+
+The location of the register address pointer will automatically add 1 after every Write Operation.
+Therefore, when the host needs to perform Write Operations on a group of registers of continuous
+addresses, it is able to write continuously. The Write Operation is terminated when the host issues the
+Stop condition.
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                      11
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+c) Reading Data from GT911
+(For example：device address is 0xBA/0xBB)
+
+
+
+
+                                                     Timing for Read Operation
+
+The diagram above is the timing sequence of the host reading data from GT911. First, the host issues
+a Start condition and sends 0XBA (address bits and R/W bit; R/W bit as 0 indicates Write operation)
+to the slave device.
+
+After receiving ACK, the host sends the 16-bit register address (where reading starts) to the slave
+device. Then the host sets register addresses which need to be read.
+
+Also after receiving ACK, the host issues the Start condition once again and sends 0XBB (Read
+Operation). After receiving ACK, the host starts to read data.
+
+GT911 also supports continuous Read Operation and, by default, reads data continuously. Whenever
+receiving a byte of data, the host sends an ACK signal indicating successful reception. After receiving
+the last byte of data, the host sends a NACK signal followed by a STOP condition which terminates
+communication.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                      12
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+7.HotKnot Mode
+7.1 Start HotKnot
+When data needs to be sent, the host sends command 0x21 to GT9, enabling GT911 to enter
+" Approach mode" and work as a transmitting terminal. GT911 will then be able to detect the
+receiving terminal communicating with it. When GT911 succeeds in detecting the receiving terminal, it
+will notify the the host to shut off LCD using an interrupt signal and then transmit data to the
+receiveing terminal.
+
+
+7.2 Data Transmission between TPs
+After GT911 and another Hotknot terminal successfully detect one another, the host downloads
+HotKnot transmission firmware and sends the firmware to both terminals. While the transmission
+firmware runs, the two terminals are ready for data transmission, entering Receive mode by default.
+When the GT911 Transmit Buffer is refreshed correctly, GT911 works as the transmitting terminal and
+immediately transmits data to the other HotKnot terminal, which works as a receiving terminal
+detecting data sent by GT911.
+
+
+7.3 Host Receives Data from GT911
+Following recieval or transmission of a data frame, GT911 inverts INT to notify the host to process
+data.
+
+After receiving a data frame, the the host reads the value of the HotKnot-featured status register. If
+the value of the receive-status register indicates a successful reception, the host will read the data
+from the Receive Buffer via I2C. After reading the recieved data, the host writes 0xAA to the
+designated address and notifies GT911 that data reading is complete.
+
+After GT911 transmits a data frame, the host reads the value of the HotKnot-featured status register.
+If the value of the transmit-status register indicates a successful transmission, the host will read the
+data from the Transmit Buffer via I2C. After reading this data, the host writes 0xAA to the designated
+address and notifies GT911 that data reading is complete. GT911 will automatically switch to Receive
+mode and will not start transmitting until Transmit Buffer is refreshed again.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    13
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+8.Description on Functions
+
+8.1      Operating Modes
+
+
+
+
+a) Normal Mode
+
+When GT911 is operating in Normal mode, its minimum coordinate refresh cycle is 7ms-10ms
+(subject to configuration; one step is 1ms).
+
+When no touch occurs for a certain period (0s to 15s, subject to configuration; one step is 1s) in
+Normal mode, GT911 will automatically switch to Green mode to reduce power consumption.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    14
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+b) Green Mode
+
+In Green mode, the scanning cycle for GT911 is about 40ms. It automatically enters Normal mode if
+any touch is detected.
+
+c) Gesture Mode
+
+After the host enables GT911 to enter Gesture mode by sending I2C command 8 to 0x8046 and then
+to 0x8040, wake-up can be achieved by swipe, double-tap, or writing of specified letters on TP.
+
+In Gesture mode, when GT911 detects any finger swipe on TP for a sufficiently long distance, INT will
+output a pulse for longer than 250us or a high level causing the host to wake up and turn on the
+screen.
+
+In Gesture mode, when GT911 detects any double-tap on TP, INT will output a pulse for longer than
+250us or a high level causing the host to wake up and turn on the screen.
+
+In Gesture mode, when GT911 detects any writing of specified letters on the TP, INT will output a
+pulse for longer than 250us or a high level causing the host to wake up and turn on the screen.
+
+d) Sleep Mode
+
+GT911 enters Sleep mode if it receives corresponding I2C command from the host (requires INT
+output low before the command). GT911 exits Sleep mode and enters Normal mode when host
+outputs a high level to INT pin for 2ms to 5ms. The interval between sending screen-off command
+and wake-up should be longer than 58ms.
+
+
+
+
+e) Approach Mode
+
+When HotKnot proximity detection is enabled, GT911 operates in Approach mode by default. If
+GT911 exits Approach mode, the host can enable it to enter Approach mode again by sending
+command 0x20 or 0x21. In Approach mode, touch detection and near-field proximity detection
+alternate.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    15
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+If the host sends 0x21 to GT911, GT911 will work as a transmitting terminal and transmit signals with
+a specified pattern and frequency via Tx and Rx channels. Then, GT911 detects whether there are
+feedback signals with the same specified pattern and frequency from the receiving terminal. This
+helps to determine whether any receiving terminal exists. If the host sends 0x20 to GT9, GT911 will
+work as a Receiving terminal and detect signals with a specified pattern and frequency from the
+transmitting terminal. If such a signal is detected, GT911 responds using signals with the specified
+pattern and frequency to the transmitting terminal.
+
+In Approach mode, when detecting any HotKnot-compatible terminal within the near-field range,
+GT911 will notify the host via INT to capture status. To ensure reliable detection between the
+transmitting terminal and the receiving terminal, it is required to keep detecting for a minimum of
+150ms after the two terminals have detected each other. Then the host downloads and sends
+HotKnot transmission firmware to enable GT911 to enter Receive mode.
+
+f)      Receive Mode
+
+In Approach mode, after notified that GT911 has successfully detected another HotKnot terminal, the
+host downloads and sends HotKnot transmission firmware to enable GT911 to enter Receive mode.
+In Receive mode, GT911 continues to detect frame start signal, once the signal is detected, GT911
+begins to detect and receive data. When the receiving process is completed, GT911 verifies the data.
+If GT911 finds erroneous data, the receiving process begins again. If the data is found to be correct,
+GT911 notifies the host via INT to read data in the Receive Buffer.
+
+g) Send Mode
+
+When GT911 works in Receive mode, the host sends outgoing data to the Transmit Buffer. When
+detecting that the Transmit Buffer is refreshed and there is data to be sent, GT911 automatically
+switches from Receive mode to Send mode. In Send mode, GT911 sends a frame start signal. If it
+detects ACK fed back from the receiving terminal, it continues to send the data signal. After sending a
+data chunk, GT911 begins to detect ACK. If it does not detect any ACK or if it detects an erroneous
+ACK, GT911 will resend the data chunk. If this resending fails over 5 times, it will resend the current
+data frame another time to the receiving terminal until the host enables GT911 to exit Send mode due
+to timeout. If GT911 detects ACK and sends the data successfully, it will automatically switch to
+Receive mode after the host completes the data processing or due to timeout.
+
+
+8.2          Interrupt Triggering Mechanism
+
+When touched, GT911 sends a pulse via INT pin in every scanning cycle to notify the host to read
+coordinates. Host will then set a triggering mechanism via relevant register “INT” bit. INT as “0” indicates
+rising edge-triggered, which means GT911 will notify the host by driving INT output from low to high when
+operated by user; INT as “1” indicates falling edge-triggered, which means GT911 will notify the host by
+pulling INT output from high to low when operated by user .
+
+
+
+
+     GOODIX CONFIDENTIAL
+     Reproduction and/or distribution of this document in whole or in
+     part is strictly prohibited without written consent of GOODIX.
+                                                                        16
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+8.3      Sleep Mode
+
+When the touch screen is off or there are no running operations on the TP, the host sends I2C
+command to enable GT911 to enter Sleep mode, which reduces power consumption. When GT911
+needs to operate, the host outputs a high level to INT pin for a certain period to awake it. For detailed
+timings of host enabling GT911 to enter and exit Sleep mode, please refer to section 8.1.
+
+
+8.4      Stationary Configuration
+
+GT911 supports Stationary Configuration. After receiving configuration parameters from the host,
+GT911 will fix parameters to the latest version. Once these parameters are fixed, GT911 will
+communicate with the host solely via I2C bus and will not receive any parameters of previous
+versions from the host.
+
+
+8.5      Adaptive Frequency Hopping
+
+GT911 is equipped with reliable anti-interference hardware. When the drive spectrum of GT911
+overlaps with the peak spectrum of noise signal, GT911 will switch to another frequency using a
+self-adaptive frequency hopping mechanism to avoid interference.
+
+
+8.6      Self-calibration
+
+a) Self-calibration during Initialization
+
+Fluctuations in temperature, humidity and environment may affect the reference capacitance of the
+capacitive sensor in idle state. GT911 will update detection reference capacitance according to
+environmental conditions within the first 200ms of initialization. Then, GT911 will complete the
+initialization of the TP test.
+
+b) Automatic Drift Compensation
+
+Gradual changes in environmental factors such as temperature, humidity, or dust may also affect the
+reference capacitance of the capacitive sensor in idle state. GT911 will detect real-time changes in
+data and perform statistic analysis of historic data to revise reference capacitance and thus reduce
+the impact that environmental changes have on the TP test.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    17
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+9.Sample Schematic
+                                               J1
+                                           1                                                                        KEY 1
+                            SENS0          2                                                                                                                                                                                                               SENS2
+                                                                                                           1                          2         SENS_KEY 1                                                                                                             DRV0
+                                           3
+                                                                                                                                                                                                                                                                       DRV1
+                            SENS1                                                                                                                                                                                                                          SENS1
+                                                                                                                                                                                                                                                                       DRV2
+                                                                                                                                                                                                                                                                       DRV3
+                                                                                                                                                                                                                                                                       DRV4
+                            SENS2          4                                                                                                                                                                                                               SENS0
+                                                                                                                                                                                                                                                                       DRV5
+                                                                                                                                                                                                                                                                       DRV6
+                                                                                                                                                                                                                                                                       DRV7
+                                           5
+                                                                                                                                                                                                                                                                       DRV8
+                            SENS3
+                            SENS4          6                                                                        KEY 2
+                            SENS5          7
+                                                                           DRV_KEY                         1                          2         SENS_KEY 2                                                                                          53
+                                                                                                                                                                                                                                                           52
+                                                                                                                                                                                                                                                           51
+                                                                                                                                                                                                                                                           50
+                                           8
+                                                                                                                                                                                                                                                           49
+                            SENS6
+                                                                                                                                                                                                                                                           48
+                                                                                                                                                                                                                                                           47
+                                                                                                                                                                                                                                               U1
+                                                                                                                                                                                                                                                           46
+                                                                                                                                                                                                                                                           45
+                                                                                                                                                                                                                                                           44
+                                                                                                                                                                                                                                                           43
+                                                                                                                                                                                                                                                           42
+                                                                                                                                                                                                                                                           41
+                                                                                                                                                                                                                                                           40
+                            SENS7          9
+                                          10
+                                                                                                                                                                                                                                                                SENS2
+                            SENS8                                                                                                                                                                                                                    EP
+                                                                                                                                                                                                                                                                SENS1
+                                                                                                                                                                                                                                                                SENS0
+                                                                                                                    KEY 3
+                                                                                                                                                                                                                                                                AGND
+                                                                                                                                                                                                                                                                 DRV0
+                            SENS9         11
+                                                                                                                                                                                                                                                                 DRV1
+                                                                                                                                                                                                                                                                 DRV2
+                                                                                                                                                                                                                                                                 DRV3
+                                                                                                                                                                                                                                                                 DRV4
+                                          12
+                                                                                                                                                                                                                                                                 DRV5
+                            SENS10                                                                         1                          2
+                                                                                                                                                                                                                                                                 DRV6
+                                                                                                                                                                                                                                                                 DRV7
+                                          13                                                                                                    SENS_KEY 3                                                                                                       DRV8
+                            SENS11                                                                                                                                                                                                         1                                                                39
+                                          14                                                                                                                                                                    SENS3                                                                                                DRV9
+                            SENS12                                                                                                                                                                                                         2   SENS3                                               DRV9     38
+                                          15                                                                                                                                                                    SENS4                                                                                                DRV10
+                            SENS13                                                                                                                                                                                                         3   SENS4                                              DRV10     37
+                                          16                                                                        KEY 4                                                                                       SENS5                                                                                                DRV11
+                                                                                                                                                                                                                SENS6                      4   SENS5                                              DRV11     36       DRV12
+                                                                                                           1                          2         SENS_KEY 4                                                      SENS7                      5   SENS6                                              DRV12     35       DRV13
+                                                                                                                                                                                                                SENS8                      6   SENS7                                              DRV13     34       DRV14
+                                 SENS Interf ace
+                                                                                                                                                                                                                SENS9                      7   SENS8                      GT911                   DRV14     33       DRV15
+                                               J2                                                                                                                                                               SENS10                     8   SENS9                                              DRV15     32       DRV16
+                                           1                      Key design rules:
+                                                                                                                                                                                                                SENS11                     9   SENS10               QFN6x6-52L-0.4P               DRV16     31       DRV17
+                            DRV0           2                      1.Support at most f our touch key s.Select a maximum of 4 sensing channels                                                                                                   SENS11                                             DRV17
+                                                                    as SENS_KEY and select one separate driv ing channel as DRV_KEY .                                                                           SENS12                    10                                                                30       DRV18
+                            DRV1           3                                                                                                                                                                                                   SENS12                                             DRV18
+                                                                  2.The sensing channels used by key s must be shared with the touch pannel.                                                                    SENS13                    11                                                                29       DRV19
+                            DRV2           4                                                                                                                                                                                                   SENS13                                             DRV19
+                                                                  3. For DRV_KEY selection, please ref er to tool Channel Selector.                                                                                                       12                                                                28       DRV20
+                            DRV3           5                                                                                                                                                    AVDD                                           AVDD28
+                                                                                                                                                                                                                                                                DVDD12
+                                                                                                                                                                                                                                                                                                  DRV20
+                                                                                                                                                                                                                AVDD18                    13                    DGND                                        27       DRV21
+                            DRV4           6                                                                                                                                                                                                   AVDD18
+                                                                                                                                                                                                                                                                INT
+                                                                                                                                                                                                                                                                Sensor_OPT1                       DRV21
+                                                                                                                                                                                                                                                                Sensor_OPT2
+                            DRV5           7                                                                                                                                                                                                                    I2C_SDA
+                                                                                                                                                                                                                                                                I2C_SCL
+                            DRV6           8                                         INT_A                     R7           680         INT                                                                                                                     VDDIO
+                                                                                                                                                                                                                                                                RSTB
+                            DRV7           9                                                                                                                                                                                                                    DRV25
+                                                                                                                                                                                                                                                                DRV24
+                            DRV8          10                                                            C6
+                                                                                                                                                                                                                                                                DRV23
+                                                                                                                                                                                             AVDD                                                               DRV22
+
+                                                                                                                                                                                                      AVDD18        DVDD12
+                            DRV9          11
+
+                                                                                                                                                                                                                                  VDDIO
+                            DRV10         12                                                            1nF
+                                                                                                                                                                                                                                                           14
+                                                                                                                                                                                                                                                           15
+                                                                                                                                                                                                                                                           16
+                                                                                                                                                                                                                                                           17
+                                                                                                                                                                                                                                                           18
+                                                                                                                                                                                                                                                           19
+                                                                                                                                                                                                                                                           20
+                                                                                                                                                                                                                                                           21
+                                                                                                                                                                                                                                                           22
+                                                                                                                                                                                                                                                           23
+                                                                                                                                                                                                                                                           24
+                                          13
+                                                                                                                                                                                                                                                           25
+                            DRV11
+                                                                                                                                                                                                                                                           26
+                            DRV12         14
+                            DRV13         15                                                                                                                                                     C1            C2            C3       C4
+                            DRV14         16                                                                                                                                                                                                                        INT
+
+
+                                                                                                                                                                                                                                                           DVDD12
+                                                                                  To enable "Gesture wake-up" f unction,                                                                         2.2uF 2.2uF 2.2uF 2.2uF
+                                                                                                                                                                                                                                                                    OPT1
+                            DRV15         17                                                                                                                                                                                                                        OPT2
+                                                                                                                                                                                                                                                                    I2C_SDA                                  /RST R1          10K     VDDIO
+                                          18                                      this circuit should be connected to INT pin.                                                                                                                                      I2C_SCL
+                            DRV16                                                                                                                                                                                                                                   VDDIO
+                                                                                                                                                                                                                                                                    /RST
+                            DRV17         19
+                                                                                                                                                                                                                                                                    DRV25
+                                                                                                                                                                                                                                                                    DRV24
+                                                                                                                                                                                                                                                                    DRV23                                            C5
+                                                                                                                                                                                                                                                                    DRV22
+                            DRV18         20
+                            DRV19         21                                                                                                                                                                                                                                                                         10nF
+                            DRV20         22                                                                                                           S_OPT1
+                                          23                                                                                VDDIO
+                            DRV21
+                                          24                                                                                                                                            OPT1
+                            DRV22
+                            DRV23         25                                                                                                                                                                                                                                       If there are pull-up resistors on the host I2C
+                            DRV24         26                                                                                                                                                                                                                                       bus, these two pull-up resistors on the module
+                            DRV25         27                                                                                                                                                                                                                                       should be remov ed.
+                                          28                      Sensor_OPT1 and Sensor_OPT2 are sensor ID pins. Six dif f erent kinds of connection method can distinguish                                                                                                            R4 2k                                    1
+                                                                  among 6 module manuf acturers. Sensor ID numbers 0-5 indicate 6 module manuf acturers respectiv ely .                                                                                                                                                 2
+                                                                  Sensor_OPT2 cannot be lef t f loating.                                                                                                                                                                                             VDDIO
+                                 DRV Interf ace                                                                                                                                                                                                                                         R5 2k                                    3
+                                                                                                                                                                                                                                                                                                                                         AVDD
+                                                                                                                                                                                 Sensor ID connection methods f or COF
+                                                                                                                                                                                                                                                                                                                              JUMP1
+                                                                                                                       3                                                S_OPT1         S_OPT2      Module ID    Sensor ID
+    Unused SENS or DRV Pins can be lef t f loating. For                              R6                300k                   S_OPT2
+    channel selection, please ref er to tool Channel Selector.                                                                   2                     OPT2             GND             GND         Module1         0
+                                                                                                                                                                       VDDIO            GND         Module2         1                                               The v oltage VDDIO sets the logic lev el. When VDDIO is connected to
+                                                                                                                       1                                                                                                                                            AVDD directly , the logic lev el is AVDD, otherwise, logic lev el is 1.8V.
+                                                                                                                                                                         NC             GND         Module3         2
+             J3                                                                                                                                                         GND             300K        Module4         3
+                    1                                                     OPT2 connection methods for COF. Pay attention to Sensor ID list on the right.               VDDIO            300K        Module5         4
+                                                                          OPT2 pins cannot be left floating.
+                    2                                                                                                                                                    NC             300K        Module6         5
+                    3                                  AVDD
+                                    INT_A
+                    4             I2C_SCL
+                    5             I2C_SDA
+                    6             /RST                                        3      S_OPT2                                                                                      Sensor ID connection methods f or COB
+                                                                                         2                                                            OPT2              S_OPT1         S_OPT2      Module ID   Sensor ID
+             Host Interf ace                                                  1                                                                                         GND            GND          Module1        0
+                                                                                                                           300k
+                                                                                    Module                                                   Main board
+                                                                                                                                                                       VDDIO
+                                                                                                                                                                         NC
+                                                                                                                                                                                       GND
+                                                                                                                                                                                       GND
+                                                                                                                                                                                                    Module2
+                                                                                                                                                                                                    Module3
+                                                                                                                                                                                                                   1
+                                                                                                                                                                                                                   2
+                                                                                                                                                                                                                                                                                      Shenzhen Huiding Technology Co.,Ltd.
+     Interf ace sequence (f or ref erence only )                                                                                                                                                    Module4
+                                                                                                                                                                        GND              NC                        3                                     Size          Project Name                                                              Rev
+                                                                 OPT2 connection methods for COB.The 300kΩ resistor connected to OPT2 should be placed on                                           Module5
+                                                                 the main board, in case the OPT2 node is left floating when it is not connected to the touch panel.
+                                                                                                                                                                       VDDIO
+                                                                                                                                                                        NC
+                                                                                                                                                                                         NC
+                                                                                                                                                                                         NC         Module6
+                                                                                                                                                                                                                   4
+                                                                                                                                                                                                                   5
+                                                                                                                                                                                                                                                          Custom                                  GT911                                           2.4
+                                                                                                                                                                                                                                                         Date:       Monday , March 09, 2015                 Sheet        1      of      1
+
+
+
+
+                                                                                                                                GT911 Sample schematic
+
+Note:
+
+                 This schematic only represents basic application. Adjustments may be required to fit in with
+                  actual situations and application environments.
+
+                 It is recommended that the capacitor be ceramic X7R.
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                                                                                                                                                      18
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+10. Electrical Characteristics
+
+10.1 Absolute Maximum Ratings
+(Ambient temperature: 25℃)
+
+                      Parameter                                     Min.          Max.          Unit
+          Analog power AVDD28 (please refer
+                                                                    2.66          3.47           V
+                      to AGND)
+            VDDIO (please refer to DGND)                            1.7           3.47          V
+            Voltage acceptable to digital I/O                       -0.3          3.47          V
+           Voltage acceptable to analog I/O                         -0.3          3.47          V
+            Range of operating temperature                          -40            85           ℃
+             Range of storage temperature                           -60           125           ℃
+              Welding temperature (10s)                              －            300           ℃
+          ESD protection voltage (HB Model)                          －             ±2           KV
+
+
+10.2 Recommended Operating Conditions
+
+                                                                                                  Unit
+                  Parameter                                Min.            Typ.          Max.
+                   AVDD28                                  2.8               -           3.3         V
+                    VDDIO                                  1.8               -           3.3         V
+              Working temperature                          -20              25            85         ℃
+
+
+10.3 AC Electrical Characteristics
+(Ambient temperature:25℃, AVDD=2.8V, VDDIO=1.8V)
+
+                                                                                                  Unit
+                       Parameter                            Min.           Typ.          Max.
+             OSC oscillation frequency                       59             60            61      MHz
+         I/O output rise time, low to high                    -             14             -       ns
+          I/O output fall time, high to low                   -             14             -       ns
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                           19
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+10.4 DC Electrical Characteristics
+(Ambient temperature:25℃, AVDD=2.8V, VDDIO=1.8V or VDDIO=AVDD)
+
+                                                                                        Unit
+               Parameter                                 Min.       Typ.     Max.
+  Normal mode operating current                            -         8        14.5      mA
+
+  Green mode operating current                             -        3.3        -        mA
+
+   Sleep mode operating current                           70         -        120       uA
+
+    Doze mode operating current                            -        0.78       -        mA
+
+    Digital Input low voltage/VIL                        -0.3        -     0.25*VDDIO    V
+
+   Digital Input high voltage/VIH                  0.75*VDDIO        -     VDDIO+0.3     V
+
+  Digital Output low voltage/VOL                           -         -     0.15*VDDIO    V
+
+ Digital Output high voltage/VOH                   0.85*VDDIO        -         -         V
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                     20
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+11. Package
+
+
+
+
+                                                         Dimensions In Millimeters
+                                       Symbol
+                                                        Min.        Normal        Max.
+                                           A            0.70          0.75        0.80
+                                          A1            0.00         0.035        0.05
+                                           b                        0.40BSC
+                                           D                        6.00BSC
+                                          D1            4.40          4.50        4.60
+                                           E                        6.00BSC
+                                          E1            4.40          4.50        4.60
+                                           e            0.15          0.20        0.25
+                                           L            0.30          0.40        0.50
+                                           L1           0.31          0.36        0.41
+
+                                           L2           0.13          0.18        0.23
+                                           K                        0.203BSC
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                             21
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+12. Revision History
+        Revision                  Date                                 Description
+      Rev. 00              2012-11-02              Preliminary version
+                           2012-11-22              Modified configurations
+      Rev. 01
+                                                   Updated sample schematic
+                           2012-12-26              Modified storage temperature, supply currents in
+      Rev. 02
+                                                   various modes and some descriptions
+      Rev.03               2013-03-19              Added descriptions on filter
+      Rev.04               2013-05-14              Added reflow conditions
+                                                   Updated product features
+                                                   Added sensor design specifications of SITO
+                                                   Updated register map
+                                                   Modified operating modes switch diagram
+      Rev.05               2013-06-19              Modified description on sleep mode and wakeup timing
+                                                   Deleted reflow conditions
+                                                   Updated sample schematic
+                                                   Modified the typ. value of Normal mode operating
+                                                   current
+                                                   Added layout of Rx channels
+                                                   Updated I2C timing
+      Rev.06               2013-08-27              Updated power-on timing
+                                                   Updated register map
+                                                   Updated absolute maximum ratings
+                                                   Modified product features
+                                                   Modified pin definition
+                                                   Added touch key design specifications
+                                                   Updated power-on timing
+                                                   Added reset timing
+      Rev.07               2014-07-09
+                                                   Updated I2C addressing timing
+                                                   Deleted register map
+                                                   Modified operating modes diagram
+                                                   Modified sample schematic
+                                                   Updated DC electrical characteristics
+      Rev.08               2014-08-22              Updated power-on and reset timings
+                                                   Modified I2C addressing timing
+                                                   Modified sample schematic
+      Rev.09               2015-03-11              Updated AC electrical characteristics
+                                                   Modified the Unit of DC electrical characteristics
+                                                   Modified package parameters
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                     22
+GT911: 5-Point Capacitive Touch Controller for Small-Sized MID
+
+
+
+
+13. Contact Information
+
+
+
+
+                     Shenzhen Huiding Technology Co., Ltd.
+
+       Floor 13, Phase B, Tengfei Industrial Building, Futian Free Trade Zone
+
+       Shenzhen        518000
+
+       TEL：+86-755-33338828                                          FAX：+86-755-33338828
+
+
+                                             www.goodix.com
+
+
+
+
+ GOODIX CONFIDENTIAL
+ Reproduction and/or distribution of this document in whole or in
+ part is strictly prohibited without written consent of GOODIX.
+                                                                    23
+Our company network supports you worldwide with offices in Germany, Great Britain, Italy, Turkey and the
+USA. For more information please contact:
+
+
+
+
+              Distec GmbH                                             Display Technology Ltd.
+              Augsburger Str. 2b                                      5 The Oaks Business Village
+              82110 Germering                                         Revenge Road, Lordswood
+              Germany                                                 Chatham, Kent, ME5 8LF
+                                                                      United Kingdom
+              Phone:      +49 (0)89 / 89 43 63-0                      Phone:      +44 (0)1634 / 67 27 55
+              Fax:        +49 (0)89 / 89 43 63-131                    Fax:        +44 (0)1634 / 67 27 54
+              E-Mail:     info@datadisplay-group.de                   E-Mail:     info@datadisplay-group.co.uk
+              Internet:   www.datadisplay-group.de                    Internet:   www.datadisplay-group.co.uk
+
+
+
+
+                                           Apollo Display Technologies, Corp.
+                                           87 Raynor Avenue, Unit 1Ronkonkoma, NY
+                                           11779
+                                           United States of America
+                                           Phone:    +1 631 / 580-43 60
+                                           Fax:      +1 631 / 580-43 70
+                                           E-Mail:   info@datadisplay-group.com
+                                           Internet: www.datadisplay-group.com
+
+
+
+
+              Sales Partner:                                          Sales Partner:
+
+              REM Italy s.a.s.                                        DATA DISPLAY BİLİŞİM TEKNOLOJİLERİ
+              di Michieletto Flavio & C.                              İÇ VE DIŞ TİCARET LİMİTED ŞİRKETİ
+              Via Obbia Bassa, 10                                     Barbaros Mh Ak Zamabak Sk A Blok
+              I-35010 Trebaseleghe (PD)                               D:143 Ataşehir/İstanbul
+              Italy                                                   Turkey
+              Phone: +39 335 521 37 89                                Phone: +90 (0)216 / 688 04 68
+              E-Mail: info@remitaly.com                               Fax:      +90 (0)216 / 688 04 69
+              Internet:www.remitaly.com                               E-Mail: info@data-display.com.tr
+                                                                      Internet:www.data-display.com.tr
+

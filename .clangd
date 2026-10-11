@@ -1,0 +1,6 @@
+CompileFlags:
+  CompilationDatabase: build
+  Remove: [-mlongcalls, -fno-shrink-wrap, -fstrict-volatile-bitfields, -fno-tree-switch-conversion, -mdisable-hardware-atomics, -specs=*, -fzero-init-padding-bits=*]
+  Add: [--target=xtensa-esp32s3-elf]
+Diagnostics:
+  Suppress: [drv_unknown_argument, drv_unsupported_opt]
