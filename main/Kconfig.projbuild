@@ -13,6 +13,6 @@ config DASH_RPM_LIMIT
     default 6000
     help
         Engine rev limit. The RPM bar scale is this value rounded up to 1000;
-        from (limit - 100) rpm the bar fill blinks red/blue.
+        from (limit - 500) rpm the bar fill blinks red.
 
 endmenu

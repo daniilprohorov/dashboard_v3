@@ -27,11 +27,13 @@ Visual reference taken from an earlier browser prototype. Only layout, style and
 3. **Secondary row** — 7 equal cells, ~40 px font: `W t` | `O t` | `O lvl` | `F cns` | `Range` | `F lvl` | `E t`.
 4. **Footer row** — 3 equal cells, ~40 px font: `Odometer` | `Errors msg` | `Time`.
 
-Each cell: bordered box (3 px white border, 5 px margin), small caption (~24 px) centered in the top border, value centered below.
+Each cell: bordered box (3 px white border, 5 px margin), small caption (~24 px) centered directly above the top border (not overlapping it), value centered in the box.
 
 ## Style
 
-- Black background; text, borders and bar white. Monochrome, high contrast, no icons. Only exception: from (rev limit − 100) rpm the bar fill blinks red/white.
+- Black background; text, borders and bar white. Monochrome, high contrast, no icons. Exceptions: from (rev limit − 100) rpm the bar fill blinks red/white, and out-of-range cells get a solid background fill (text stays white).
+- Colors come only from `main/palette.h` (red, yellow, green, blue), same shades everywhere.
+- Cell fills: `W t` and `O t` < 80 blue, > 100 red; `F cns` < 7 green, < 10 yellow, ≥ 10 red; `Range` < 100 red; `F lvl` < 10 red; `E t` > 30 red, < −10 blue.
 - Digits are tabular (equal width) so changing values don't jitter.
 - Sans-serif. Plain values, no units shown in cells.
 - Display-only, no touch interaction.

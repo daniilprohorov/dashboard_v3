@@ -7,13 +7,14 @@
 #include "board.h"
 #include "sdkconfig.h"
 #include "lvgl.h"
+#include "palette.h"
 
 LV_FONT_DECLARE(font_montserrat_100);
 
 #define RPM_LIMIT    CONFIG_DASH_RPM_LIMIT
 #define RPM_MAX      ((RPM_LIMIT + 999) / 1000 * 1000) // bar scale: limit rounded up to a tick
-#define RPM_WARN     (RPM_LIMIT - 100)                  // bar blinks from here on
-#define BLINK_MS     100
+#define RPM_WARN     (RPM_LIMIT - 500)                  // bar blinks from here on
+#define BLINK_MS     50
 #define BAR_H        100
 #define BAR_MARGIN   25
 #define PRIMARY_H    260
@@ -21,7 +22,7 @@ LV_FONT_DECLARE(font_montserrat_100);
 #define FOOTER_H     (BOARD_LCD_V_RES - BAR_H - PRIMARY_H - SECONDARY_H)
 #define CELL_MARGIN  5
 #define BORDER_W     3
-#define CAPTION_LIFT 14 // caption straddles the top border; reserve room above it
+#define CAPTION_LIFT 28 // caption sits fully above the box's top border; reserve room for it
 
 enum {
     F_RPM, F_GEAR, F_SPEED,
@@ -37,6 +38,7 @@ static const char *const captions[F_COUNT] = {
 };
 
 static lv_obj_t *values[F_COUNT];
+static lv_obj_t *boxes[F_COUNT];
 static lv_obj_t *rpm_bar;
 static bool rpm_warn;
 
@@ -100,17 +102,15 @@ static void make_cell(lv_obj_t *scr, int field, int x, int y, int w, int h, cons
     lv_obj_t *val = lv_label_create(box);
     lv_obj_set_style_text_font(val, font, 0);
     lv_label_set_text_static(val, "--");
-    lv_obj_align(val, LV_ALIGN_CENTER, 0, CAPTION_LIFT / 2);
+    lv_obj_align(val, LV_ALIGN_CENTER, 0, 0);
     values[field] = val;
+    boxes[field] = box;
 
-    // Sibling, not child: the box would clip the half above its border.
+    // Sibling, not child: the box would clip it. Fully above the border so a fill isn't notched.
     lv_obj_t *cap = lv_label_create(scr);
     lv_obj_set_style_text_font(cap, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_bg_color(cap, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_hor(cap, 4, 0);
     lv_label_set_text_static(cap, captions[field]);
-    lv_obj_align_to(cap, box, LV_ALIGN_TOP_MID, 0, -(lv_font_get_line_height(&lv_font_montserrat_24) - BORDER_W) / 2);
+    lv_obj_align_to(cap, box, LV_ALIGN_OUT_TOP_MID, 0, 0);
 }
 
 static void make_row(lv_obj_t *scr, int first, int count, int y, int h, const lv_font_t *font)
@@ -157,14 +157,19 @@ static void make_rpm_bar(lv_obj_t *scr)
     lv_obj_set_style_bg_opa(rpm_bar, LV_OPA_COVER, LV_PART_INDICATOR);
 }
 
-// Near the rev limiter the bar fill blinks red/white; otherwise it stays white.
+// Near the rev limiter the bar fill blinks red/off (black screen shows through); otherwise it stays white.
 static void blink_tick(lv_timer_t *t)
 {
-    static bool red;
-    bool want = rpm_warn && !red;
-    if (want != red) {
-        red = want;
-        lv_obj_set_style_bg_color(rpm_bar, red ? lv_palette_main(LV_PALETTE_RED) : lv_color_white(), LV_PART_INDICATOR);
+    static bool warn, on = true;
+    bool want_on = !rpm_warn || !on;
+    if (rpm_warn != warn) {
+        warn = rpm_warn;
+        lv_obj_set_style_bg_color(rpm_bar, warn ? PALETTE_RED : lv_color_white(), LV_PART_INDICATOR);
+        want_on = true;
+    }
+    if (want_on != on) {
+        on = want_on;
+        lv_obj_set_style_bg_opa(rpm_bar, on ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_INDICATOR);
     }
 }
 
@@ -212,6 +217,33 @@ static void set_tenths(int field, unsigned v)
     set_text(field, buf);
 }
 
+// Cell background fill; text stays white. FILL_NONE = black (transparent box).
+typedef enum { FILL_NONE, FILL_RED, FILL_YELLOW, FILL_GREEN, FILL_BLUE } fill_t;
+
+static void set_fill(int field, fill_t fill)
+{
+    static fill_t current[F_COUNT];
+    if (current[field] == fill) {
+        return;
+    }
+    current[field] = fill;
+    lv_obj_t *box = boxes[field];
+    switch (fill) {
+    case FILL_RED:    lv_obj_set_style_bg_color(box, PALETTE_RED, 0); break;
+    case FILL_YELLOW: lv_obj_set_style_bg_color(box, PALETTE_YELLOW, 0); break;
+    case FILL_GREEN:  lv_obj_set_style_bg_color(box, PALETTE_GREEN, 0); break;
+    case FILL_BLUE:   lv_obj_set_style_bg_color(box, PALETTE_BLUE, 0); break;
+    case FILL_NONE:   break;
+    }
+    lv_obj_set_style_bg_opa(box, fill == FILL_NONE ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
+}
+
+// Coolant and oil share the same bands.
+static fill_t engine_temp_fill(int t)
+{
+    return t < 80 ? FILL_BLUE : t > 100 ? FILL_RED : FILL_NONE;
+}
+
 void dashboard_update(const dash_data_t *d)
 {
     rpm_warn = d->rpm >= RPM_WARN;
@@ -234,6 +266,13 @@ void dashboard_update(const dash_data_t *d)
     set_int(F_RANGE, d->range);
     set_tenths(F_FLVL, d->flvl_x10);
     set_int(F_ETMP, d->etmp);
+
+    set_fill(F_WTMP, engine_temp_fill(d->wtmp));
+    set_fill(F_OTMP, engine_temp_fill(d->otmp));
+    set_fill(F_FCNS, d->fcns_x10 < 70 ? FILL_GREEN : d->fcns_x10 < 100 ? FILL_YELLOW : FILL_RED);
+    set_fill(F_RANGE, d->range < 100 ? FILL_RED : FILL_NONE);
+    set_fill(F_FLVL, d->flvl_x10 < 100 ? FILL_RED : FILL_NONE);
+    set_fill(F_ETMP, d->etmp > 30 ? FILL_RED : d->etmp < -10 ? FILL_BLUE : FILL_NONE);
     set_int(F_ODO, d->odometer);
     set_text(F_ERR, (d->errors && d->errors[0]) ? d->errors : "-");
 
