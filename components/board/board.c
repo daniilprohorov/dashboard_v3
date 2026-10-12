@@ -4,6 +4,7 @@
 #include "esp_check.h"
 #include "esp_lcd_panel_rgb.h"
 #include "esp_lcd_touch_gt911.h"
+#include "esp_twai_onchip.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -15,6 +16,10 @@ static const char *TAG = "board";
 #define I2C_TIMEOUT_MS 100
 
 #define TOUCH_INT GPIO_NUM_4
+
+// TWAI on GPIO19/20 via TJA1051; only valid while EXIO5 (USB_CAN_SEL) = 1.
+#define CAN_TX GPIO_NUM_20
+#define CAN_RX GPIO_NUM_19
 
 // Expander protocol (vendor firmware, not a catalog chip): write [reg, value].
 #define EXIO_ADDR 0x24
@@ -170,4 +175,21 @@ esp_err_t board_init(uint8_t num_fbs, board_t *out)
     }
     out->i2c = s_bus;
     return ESP_OK;
+}
+
+esp_err_t board_can_new(uint32_t bitrate, twai_node_handle_t *out)
+{
+    ESP_RETURN_ON_ERROR(board_exio_set(BOARD_EXIO_USB_CAN_SEL, true), TAG, "can sel");
+    const twai_onchip_node_config_t cfg = {
+        .io_cfg = {
+            .tx = CAN_TX,
+            .rx = CAN_RX,
+            .quanta_clk_out = GPIO_NUM_NC,
+            .bus_off_indicator = GPIO_NUM_NC,
+        },
+        .bit_timing = {.bitrate = bitrate},
+        .fail_retry_cnt = 0, // single shot: an unacked frame must not flood the bus
+        .tx_queue_depth = 4,
+    };
+    return twai_new_node_onchip(&cfg, out);
 }

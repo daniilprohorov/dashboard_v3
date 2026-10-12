@@ -24,21 +24,14 @@ LV_FONT_DECLARE(font_montserrat_100);
 #define BORDER_W     3
 #define CAPTION_LIFT 28 // caption sits fully above the box's top border; reserve room for it
 
-enum {
-    F_RPM, F_GEAR, F_SPEED,
-    F_WTMP, F_OTMP, F_OLVL, F_FCNS, F_RANGE, F_FLVL, F_ETMP,
-    F_ODO, F_ERR, F_TIME,
-    F_COUNT
-};
-
-static const char *const captions[F_COUNT] = {
+static const char *const captions[DASH_COUNT] = {
     "RPM", "Gear", "Speed",
     "W t", "O t", "O lvl", "F cns", "Range", "F lvl", "E t",
     "Odometer", "Errors msg", "Time",
 };
 
-static lv_obj_t *values[F_COUNT];
-static lv_obj_t *boxes[F_COUNT];
+static lv_obj_t *values[DASH_COUNT];
+static lv_obj_t *boxes[DASH_COUNT];
 static lv_obj_t *rpm_bar;
 static bool rpm_warn;
 
@@ -187,11 +180,11 @@ void dashboard_create(void)
 
     make_rpm_bar(scr);
     int y = BAR_H;
-    make_row(scr, F_RPM, 3, y, PRIMARY_H, big);
+    make_row(scr, DASH_RPM, 3, y, PRIMARY_H, big);
     y += PRIMARY_H;
-    make_row(scr, F_WTMP, 7, y, SECONDARY_H, small);
+    make_row(scr, DASH_WTMP, 7, y, SECONDARY_H, small);
     y += SECONDARY_H;
-    make_row(scr, F_ODO, 3, y, FOOTER_H, small);
+    make_row(scr, DASH_ODO, 3, y, FOOTER_H, small);
     lv_timer_create(blink_tick, BLINK_MS, NULL);
 }
 
@@ -222,7 +215,7 @@ typedef enum { FILL_NONE, FILL_RED, FILL_YELLOW, FILL_GREEN, FILL_BLUE } fill_t;
 
 static void set_fill(int field, fill_t fill)
 {
-    static fill_t current[F_COUNT];
+    static fill_t current[DASH_COUNT];
     if (current[field] == fill) {
         return;
     }
@@ -244,41 +237,77 @@ static fill_t engine_temp_fill(int t)
     return t < 80 ? FILL_BLUE : t > 100 ? FILL_RED : FILL_NONE;
 }
 
+// Unknown field: "-" and no fill. Returns whether the field is known.
+static bool known(const dash_data_t *d, int field)
+{
+    if (d->valid & DASH_BIT(field)) {
+        return true;
+    }
+    set_text(field, "-");
+    set_fill(field, FILL_NONE);
+    return false;
+}
+
 void dashboard_update(const dash_data_t *d)
 {
-    rpm_warn = d->rpm >= RPM_WARN;
-    lv_bar_set_value(rpm_bar, d->rpm > RPM_MAX ? RPM_MAX : (int32_t)d->rpm, LV_ANIM_OFF);
-    set_int(F_RPM, d->rpm);
+    uint32_t rpm = 0;
+    if (known(d, DASH_RPM)) {
+        rpm = d->rpm;
+        set_int(DASH_RPM, rpm);
+    }
+    rpm_warn = rpm >= RPM_WARN;
+    lv_bar_set_value(rpm_bar, rpm > RPM_MAX ? RPM_MAX : (int32_t)rpm, LV_ANIM_OFF);
 
-    if (d->gear == 0) {
-        set_text(F_GEAR, "N");
-    } else if (d->gear < 0) {
-        set_text(F_GEAR, "R");
-    } else {
-        set_int(F_GEAR, d->gear);
+    if (known(d, DASH_GEAR)) {
+        if (d->gear == 0) {
+            set_text(DASH_GEAR, "N");
+        } else if (d->gear < 0) {
+            set_text(DASH_GEAR, "R");
+        } else {
+            set_int(DASH_GEAR, d->gear);
+        }
     }
 
-    set_int(F_SPEED, d->speed);
-    set_int(F_WTMP, d->wtmp);
-    set_int(F_OTMP, d->otmp);
-    set_int(F_OLVL, d->olvl);
-    set_tenths(F_FCNS, d->fcns_x10);
-    set_int(F_RANGE, d->range);
-    set_tenths(F_FLVL, d->flvl_x10);
-    set_int(F_ETMP, d->etmp);
+    if (known(d, DASH_SPEED)) {
+        set_int(DASH_SPEED, d->speed);
+    }
+    if (known(d, DASH_WTMP)) {
+        set_int(DASH_WTMP, d->wtmp);
+        set_fill(DASH_WTMP, engine_temp_fill(d->wtmp));
+    }
+    if (known(d, DASH_OTMP)) {
+        set_int(DASH_OTMP, d->otmp);
+        set_fill(DASH_OTMP, engine_temp_fill(d->otmp));
+    }
+    if (known(d, DASH_OLVL)) {
+        set_int(DASH_OLVL, d->olvl);
+    }
+    if (known(d, DASH_FCNS)) {
+        set_tenths(DASH_FCNS, d->fcns_x10);
+        set_fill(DASH_FCNS, d->fcns_x10 < 70 ? FILL_GREEN : d->fcns_x10 < 100 ? FILL_YELLOW : FILL_RED);
+    }
+    if (known(d, DASH_RANGE)) {
+        set_int(DASH_RANGE, d->range);
+        set_fill(DASH_RANGE, d->range < 100 ? FILL_RED : FILL_NONE);
+    }
+    if (known(d, DASH_FLVL)) {
+        set_tenths(DASH_FLVL, d->flvl_x10);
+        set_fill(DASH_FLVL, d->flvl_x10 < 100 ? FILL_RED : FILL_NONE);
+    }
+    if (known(d, DASH_ETMP)) {
+        set_int(DASH_ETMP, d->etmp);
+        set_fill(DASH_ETMP, d->etmp > 30 ? FILL_RED : d->etmp < -10 ? FILL_BLUE : FILL_NONE);
+    }
+    if (known(d, DASH_ODO)) {
+        set_int(DASH_ODO, d->odometer);
+    }
+    set_text(DASH_ERR, (d->errors && d->errors[0]) ? d->errors : "-");
 
-    set_fill(F_WTMP, engine_temp_fill(d->wtmp));
-    set_fill(F_OTMP, engine_temp_fill(d->otmp));
-    set_fill(F_FCNS, d->fcns_x10 < 70 ? FILL_GREEN : d->fcns_x10 < 100 ? FILL_YELLOW : FILL_RED);
-    set_fill(F_RANGE, d->range < 100 ? FILL_RED : FILL_NONE);
-    set_fill(F_FLVL, d->flvl_x10 < 100 ? FILL_RED : FILL_NONE);
-    set_fill(F_ETMP, d->etmp > 30 ? FILL_RED : d->etmp < -10 ? FILL_BLUE : FILL_NONE);
-    set_int(F_ODO, d->odometer);
-    set_text(F_ERR, (d->errors && d->errors[0]) ? d->errors : "-");
-
-    char hhmm[8];
-    snprintf(hhmm, sizeof hhmm, "%02u:%02u", d->hour, d->minute);
-    set_text(F_TIME, hhmm);
+    if (known(d, DASH_TIME)) {
+        char hhmm[8];
+        snprintf(hhmm, sizeof hhmm, "%02u:%02u", d->hour, d->minute);
+        set_text(DASH_TIME, hhmm);
+    }
 }
 
 // ---- demo ----
@@ -302,6 +331,7 @@ static void demo_tick(lv_timer_t *t)
     uint32_t k = elapsed < half ? elapsed * 1000 / half : (DEMO_PERIOD_MS - elapsed) * 1000 / half;
 
     dash_data_t d = {
+        .valid = DASH_ALL,
         .rpm = lerp(800, RPM_LIMIT, k),
         .gear = (int8_t)(k == 0 ? 0 : (k * 6 + 999) / 1000),
         .speed = lerp(0, 240, k),

@@ -3,8 +3,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Screen fields, in layout order.
+enum {
+    DASH_RPM, DASH_GEAR, DASH_SPEED,
+    DASH_WTMP, DASH_OTMP, DASH_OLVL, DASH_FCNS, DASH_RANGE, DASH_FLVL, DASH_ETMP,
+    DASH_ODO, DASH_ERR, DASH_TIME,
+    DASH_COUNT
+};
+
+#define DASH_BIT(field) (1u << (field))
+#define DASH_ALL        (DASH_BIT(DASH_COUNT) - 1)
+
 // Snapshot of everything the dashboard shows. Fractional values are in tenths.
 typedef struct {
+    uint32_t valid;        // DASH_BIT(field) set = value known; unknown fields show "-"
     uint32_t rpm;
     int8_t gear;           // 0 = N, -1 = R, 1..n
     uint32_t speed;        // km/h

@@ -87,3 +87,19 @@ flash/monitor through the CH343 UART port (`/dev/cu.wchusbserial*` on macOS).
 - macOS: CH34x driver may be needed (link in wiki FAQ).
 - RGB drift after Wi-Fi/flash activity: see ESP FAQ "drift of the display when ESP32-S3 drives an RGB LCD";
   mitigated by bounce buffers + `CONFIG_SPIRAM_XIP_FROM_PSRAM`.
+
+## Bench tool: IMSAPP IMSB5010 OBD-II ECU simulator
+
+Answers SAE J1979 requests (modes 01–07, 09, 0A) on a J1962 socket; does not emit broadcast frames.
+Unit label "ES-L-05A3" (likely board revision). Manual: `docs/vendor/pdf/IMSB5010-OBD2-ECU-Simulator.pdf`
+(text: `docs/vendor/text/IMSB5010-OBD2-ECU-Simulator.txt`); software: https://vehelec.com/products/obd-ii-ecu-simulator-iso15765-iso9141-2-iso14230-can-bus.
+
+- Wiring to our board: OBD pin 6 CAN-H, 14 CAN-L, 5 signal GND. Simulator powered by its 13 V adapter.
+- Protocol DIP (manual p.5 combo table; the legend on the same page is drawn inverted). Up = toward top edge.
+  SW1 down = 29-bit, SW2 down = 250K, SW3/SW4 up = CAN. **All up = CAN 11-bit/500K** (what we use:
+  request `0x7DF`, reply `0x7E8`). SW4 down = ISO 9141-2, SW3 down = KWP Fast. Press Reset after change;
+  LCD first line shows active protocol.
+- Knobs drive mode 01 PIDs 0x10 MAF, 0x05 ECT, 0x0C RPM, 0x0D speed, 0x0F IAT, 0x11 TPS. MIL button sets DTCs + freeze frame.
+- USB: CP2102, 115200 8N1. Port echoes bus traffic (`<R>/<T>: <S>/<E>: [ID] data`). Commands end with `|`,
+  reply `OK>` / `ERR>`: `$VIN<17>|`, `$CID<3–16>|`, `$CVN<8 hex>|`, `$ECU<name>|`,
+  `$PID<hex>:<decimal>|` (physical units, e.g. `$PID3C:-12|`), `$SSS<6 hex>|` (PID 01 readiness).

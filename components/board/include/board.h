@@ -9,6 +9,7 @@
 #include "esp_err.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_touch.h"
+#include "esp_twai.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,10 @@ esp_err_t board_exio_set(board_exio_t line, bool level);
 
 // 0 = off, 1..100 = brightness percent.
 esp_err_t board_backlight_set(uint8_t percent);
+
+// Selects CAN on GPIO19/20 (EXIO5) and creates a disabled TWAI node at `bitrate`.
+// Caller configures filters/callbacks, then twai_node_enable().
+esp_err_t board_can_new(uint32_t bitrate, twai_node_handle_t *out);
 
 // Battery voltage via expander ADC (3:1 divider), millivolts.
 esp_err_t board_battery_mv(uint32_t *out_mv);

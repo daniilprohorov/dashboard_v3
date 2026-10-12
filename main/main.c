@@ -2,6 +2,7 @@
 
 #include "board.h"
 #include "dashboard.h"
+#include "obd.h"
 #include "esp_log.h"
 #include "esp_lv_adapter.h"
 #include "sdkconfig.h"
@@ -41,6 +42,9 @@ void app_main(void)
     dashboard_demo_start();
 #endif
     esp_lv_adapter_unlock();
+#if !CONFIG_DASH_DEMO
+    ESP_ERROR_CHECK(obd_start());
+#endif
 
     ESP_ERROR_CHECK(board_backlight_set(100));
     ESP_LOGI(TAG, "up");

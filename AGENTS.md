@@ -43,6 +43,7 @@ scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh; 
 - Board: `docs/hardware.md` → `docs/vendor/waveshare-wiki-ESP32-S3-Touch-LCD-7B.md`.
 - Chip registers/peripherals: grep `docs/vendor/text/Esp32-s3_technical_reference_manual_en.txt`, `Esp32-s3_datasheet_en.txt`.
 - Panel / touch / CAN PHY: `docs/vendor/text/{ST7262,GT911_EN_Datasheet,TJA1051}.txt`.
+- Bench OBD-II ECU simulator (IMSB5010): summary in `docs/hardware.md` § Bench tool; manual `docs/vendor/text/IMSB5010-OBD2-ECU-Simulator.txt`.
 - ESP-IDF API: headers under `$HOME/esp/esp-idf-v5.5.5/components/*/include`, docs source in `$HOME/esp/esp-idf-v5.5.5/docs/en`, examples in `$HOME/esp/esp-idf-v5.5.5/examples` (e.g. `peripherals/lcd/rgb_panel`, `peripherals/twai`).
 - LVGL 9 / adapter / GT911: source in `managed_components/` after first build. Online: https://docs.lvgl.io/9.4/.
 - Vendor working code per peripheral: `third_party/waveshare-ESP32-S3-Touch-LCD-7B/examples/ESP-IDF/NN_*`. Quality is low (global state, `ESP_ERROR_CHECK` everywhere, typos like `wavesahre_`) — copy values, not style.

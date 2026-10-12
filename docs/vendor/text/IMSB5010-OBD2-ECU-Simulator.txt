@@ -1,0 +1,484 @@
+OBD2 ECU Simulator
+     User Manual
+
+
+
+
+       IMSB5010
+   http://www.imsapp.com
+Modes
+MODE 01:Show current data
+
+
+MODE 02:Show freeze frame data
+
+
+MODE 03:Show stored Diagnostic Trouble Codes
+
+
+MODE 04:Clear Diagnostic Trouble Codes and stored values
+
+
+MODE 05:Test results, oxygen sensor monitoring (non CAN only)
+
+
+MODE 06:Test results, other component/system monitoring
+        (Test results, oxygen sensor monitoring for CAN only)
+
+
+MODE 07:Show pending Diagnostic Trouble Codes
+        (detected during current or last driving cycle)
+
+
+MODE 09:Request vehicle information
+
+
+MODE 0A:Permanent Diagnostic Trouble Codes (DTCs)
+        (Cleared DTCs)
+
+
+
+
+                              1                      IMSB5010
+                                                     Diagram
+
+
+        ①           ②    ④
+                                  ① Diagnostic Link Connector (DLC)
+                                  ②Power jack (13 VDC)
+                                  ③MIL button
+                                  ④USB connector
+    ⑧                             ⑤Status LEDs
+                             ⑨ ⑥Protocol selection
+
+⑤                            ③ ⑦Six knobs (set PID value)
+                                  ⑧Liquid Crystal Display
+                                  ⑨Reset button
+    ⑥
+                    ⑦
+
+
+
+
+                                 Ｐrotocol：
+                                 ＣＡＮ ２９Ｂ／２５０Ｋ          ←Protocol
+                                 LFV3B28R8A3025310     ←VIN
+                                    Load ：    ２６
+                                     ECT ：    ８９
+                                    R P M ： ２４５０
+                                     SPD ：    ９７
+            SN：xxxxxxx               IAT ：    ３９
+                                       TP ：   ４５
+
+                                       MIL ： ＯＦＦ       ←MIL status
+
+
+
+
+IMSB5010                     2
+OBD2 Socket
+
+
+
+           4 5 6 7                       4: Chassis ground
+                                         5: Signal ground
+                                         6: CAN High
+                                         7: ISO-K LINE
+                                        14: CAN Low
+                14   16                 16: Battery power
+
+
+
+
+  DC IN
+Input：１００～２４０ＶＡＣ
+Output：１３ＶＤＣ－１Ａ -                   +
+
+
+
+ MIL button
+When pressed, the following happens:
+1. Set MIL and generate DTCs
+2. Generate pending, stored, and permanent DTCs
+3. Generate freeze frame data
+4. MIL led ON
+
+
+
+
+                                3                            IMSB5010
+ Status LEDs
+
+CHECK：flashing=simulator is functioning properly.
+DATA：OBD message is received
+LINK：ECU is initialized.
+MIL：when MIL button pressed.
+     (turn off automatic after clear DTC command received)
+
+
+
+
+   Knobs
+Six knobs assigned to the following commonly used Mode 1 PIDs.
+1. PID 10: MAF air flow rate
+2. PID 05: Temperature of the engine coolant in °C
+3. PID 0C: Engine speed in rpm
+4. PID 0D: Vehicle speed in kph
+5. PID 0F: Intake air temperature in °C
+6. PID 11: Throttle position in %
+
+
+
+                    1   2      3   4   5   6
+
+
+
+
+                Low            High
+
+
+
+
+IMSB5010                           4
+Protocol Selection
+
+
+
+
+ 12 34
+
+
+              CAN BUS          ISO9141-2
+              ISO9141-2        ISO14230-KWP Fast
+              250K             500K
+              29BIT            11BIT
+
+
+
+
+     12 34
+             ISO15765-4 11BIT/500K
+
+     12 34
+             ISO15765-4 29BIT/ 500K
+
+     12 34
+             ISO15765-4 11BIT/250K
+
+     12 34
+             ISO15765-4 29BIT/ 250K
+
+     12 34
+             ISO9141-2
+
+     12 34
+             ISO14230-KWP Fast
+
+
+
+
+                           5                   IMSB5010
+                                                      Comm Port
+ USB Port
+USB Chip: CP2102
+The communication settings are:
+Baud rate: 115200 bps
+Data bits: 8
+Parity: none
+Stop bits: 1
+
+
+https://www.silabs.com
+
+
+
+
+Data Format
+
+<R>: <E>: [18DB33F1] 01 3C
+
+<T>: <E>: [18DAF110] 41 3C 11 90
+                                                      }   ISO15765-4 CAN 29Bit
+
+
+<R>: <S>: [000007DF] 01 10
+
+<T>: <S>: [000007E8] 41 10 01 3C
+                                                      }   ISO15765-4 CAN 11Bit
+
+
+<R>:
+
+<T>:
+                   C1 33 F1 03 E8
+
+                   87 F1 11 43 C1 01 81 02 40 32 83
+                                                      }   ISO9141-2/14230
+
+
+
+
+                                    Data Stream
+
+                                    ECU ID(only available CAN Mode)
+                                    CAN BUS Mode: Standard or Extened
+
+                                    Data Receive or Transmit
+
+
+IMSB5010                            6
+DTCs                                                    MODE 03,07,0A
+
+
+
+ＭＯＤＥ０3
+
+
+CAN-BUS:      29bit-Extened
+P0501-Vehicle Speed Sensor 'A' Range/Performance
+P0336- Crankshaft Position Sensor A Circuit Range/Performance
+
+
+CAN-BUS:      11bit-Standard
+P0168-Fuel Temperature Too High
+P0303-Cylinder 3 Misfire Detected
+
+
+ISO9141-2、ISO14230-KWP Fast :
+U0101-TCM Lost Communication
+B0102-undocumented
+C0032- Left front wheel speed sensor supply
+
+
+Pending DTCs：ＭＯＤＥ０７
+Permanent DTCs：ＭＯＤＥ０Ａ
+P0103-Mass or Volume Air Flow Circuit High Input
+P0104- Mass or Volume Air Flow A Circuit Intermittent
+
+
+
+
+                                    7                       IMSB5010
+MODE 02                                 Freeze Frame
+
+
+*Freeze frame data:
+1. DTC P0168 or P0001
+2. Engine Load 12.5%
+3. Engine coolant temperature 99°C
+4. Intake manifold absolute pressure 32kPa
+5. Engine RPM 500rpm
+6. Vehicle speed 0km/h
+7. MAF air flow rate 3.15g/s
+8. Throttle position 12.9%
+
+
+
+
+IMSB5010                       8
+Vehicle Data                                             MODE09
+
+
+Vehicle Identification Number (VIN): LFV3B28R8A3025310
+Calibration Identifications (CALID): 8R0907115A Q0006
+Calibration Verification Numbers (CVN): 0 A19B32B
+ECU Name: ECM
+
+
+
+
+                                9                        IMSB5010
+PID List                                                             ﬁxed         variable              knob
+
+PID Description                                                       Variable/Fixed          Min        Max
+ 00 List of PIDs supported (1 to 1F)                                  ﬁxed
+ 01 Monitor status since DTCs cleared.                                ﬁxed
+ 02 Freeze DTC                                                        ﬁxed
+ 03 Fuel system status                                                variable             Closed
+ 04 Engine load calculated in %                                       variable                   0        100
+ 05 Temperature of the engine coolant in Centigrade                   Knob 2                  -40         215
+ 06 Short-term fuel % trim bank 1                                     variable               -100        99.22
+ 07 Long-term fuel % trim bank 1                                      variable               -100        99.22
+ 08 Short-term fuel % trim bank 2                                     variable               -100        99.22
+ 09 Long-term fuel % trim bank 2                                      variable               -100        99.22
+ 0A Fuel pressure in kPa (gauge)                                      variable                   0        765
+ 0B Intake manifold absolute pressure in kPa (absolute)               variable                   0        255
+ 0C Engine speed in rpm                                               Knob 3                     0   16,383.00
+ 0D Vehicle speed in kph                                              Knob 4                     0        255
+ 0E Timing advance on cylinder 1 in degrees                           variable                -64         63.5
+ 0F Intake air temperature in Centigrade                              Knob 5                  -40         215
+ 10 Air ﬂow measured by the ﬂowmeter in g/s                           variable                   0      655.35
+ 11 Throttle position in %                                            Knob 6                     0        100
+ 12 Status of the secondary intake circuit                            ﬁxed           air reserved
+ 13 O2 sensor positions bank/sensor                                   ﬁxed
+ 14 Oxygen sensor volts bank 1 sensor 1                               ﬁxed                 0.080v          0%
+ 15 Oxygen sensor volts bank 1 sensor 2                               ﬁxed                 0.160v      12.50%
+ 16 Oxygen sensor volts bank 1 sensor 3                               ﬁxed                 0.240v      25.00%
+ 17 Oxygen sensor volts bank 1 sensor 4                               ﬁxed                 0.320v      37.50%
+ 18 Oxygen sensor volts bank 2 sensor 1                               ﬁxed                 0.400v      50.00%
+ 19 Oxygen sensor volts bank 2 sensor 2                               ﬁxed                 0480v      -12.50%
+ 1A Oxygen sensor volts bank 2 sensor 3                               ﬁxed                 0.560v     -25.00%
+ 1B Oxygen sensor volts bank 2 sensor 4                               ﬁxed                 0.640v     -37.50%
+ 1C OBD computer speciﬁcation                                         ﬁxed
+ 1D O2 sensor positions bank/sensor                                   ﬁxed
+ 1E Auxiliary input status                                            ﬁxed                    ON
+ 1F Run time since engine start                                       variable                   0     65,535
+ 20 List of PIDs supported (21 to 3F)                                 ﬁxed
+ 21 Distance travelled with MIL on in kms                             variable                   0     65,535
+ 22 Relative fuel rail pressure in kPa                                variable                   0   5177.265
+ 23 Fuel rail pressure in kPa (gauge)                                 variable                   0    655,350
+ 24 O2 sensor (extended range) bank 1, sensor 1 (lambda and volts)    ﬁxed                  0.125      3.998v
+ 25 O2 sensor (extended range) bank 1, sensor 2 (lambda and volts)    ﬁxed                   0.25      3.498v
+ 26 O2 sensor (extended range) bank 1, sensor 3 (lambda and volts)    ﬁxed                  0.375      2.998v
+ 27 O2 sensor (extended range) bank 1, sensor 4 (lambda and volts)    ﬁxed                     0.5     2.499v
+ 28 O2 sensor (extended range) bank 2, sensor 1 (lambda and volts)    ﬁxed                  0.625      1.999v
+ 29 O2 sensor (extended range) bank 2, sensor 2 (lambda and volts)    ﬁxed                   0.75      1.499v
+ 2A O2 sensor (extended range) bank 2, sensor 3 (lambda and volts)    ﬁxed                  0.874      0.999v
+ 2B O2 sensor (extended range) bank 2, sensor 4 (lambda and volts)    ﬁxed                  0.999      0.500v
+ 2C EGR in %                                                          variable                   0        100
+ 2D EGR error in %                                                    variable               -100       99.22
+ 2E Evaporation purge in %                                            variable                   0        100
+ 2F Fuel level in %                                                   variable                   0        100
+
+
+IMSB5010                                          10
+30 Number of warning(s) since faults (DTC) were cleared             variable           0        255
+31 Distance since faults (DTC) were cleared.                        variable           0     65,535
+32 Evaporation system vapour pressure in Pa                         variable     -8,192       8,192
+33 Barometic pressure in kPa (Absolute)                             variable           0        255
+34 O2 sensor (extended range) bank 1, sensor 1 (lambda and volts)   ﬁxed          1.001       0.012
+35 O2 sensor (extended range) bank 1, sensor 2 (lambda and volts)   ﬁxed           0.25          16
+36 O2 sensor (extended range) bank 1, sensor 3 (lambda and volts)   ﬁxed          0.375          32
+37 O2 sensor (extended range) bank 1, sensor 4 (lambda and volts)   ﬁxed             0.5         48
+38 O2 sensor (extended range) bank 2, sensor 1 (lambda and volts)   ﬁxed          0.625          64
+39 O2 sensor (extended range) bank 2, sensor 2 (lambda and volts)   ﬁxed           0.75          80
+3A O2 sensor (extended range) bank 2, sensor 3 (lambda and volts)   ﬁxed          0.874          96
+3B O2 sensor (extended range) bank 2, sensor 4 (lambda and volts)   ﬁxed          0.999         112
+3C Catalyst temperature in Centigrade bank 1, sensor 1              variable        -40    6,513.50
+3D Catalyst temperature in Centigrade bank 2, sensor 1              variable        -40    6,513.50
+3E Catalyst temperature in Centigrade bank 1, sensor 2              variable        -40    6,513.50
+3F Catalyst temperature in Centigrade bank 2, sensor 1              variable        -40    6,513.50
+40 List of PIDs supported (41 to 5F)                                ﬁxed
+41 Monitor status this drive cycle                                  ﬁxed
+42 Control module voltage in V                                      variable          0     65.535
+43 Absolute engine load                                             variable          0     25,700
+44 Equivalent fuel/air mixture request                              variable          0          2
+45 Relative throttle position in %                                  ﬁxed         2.70%
+46 Ambient air temperature in Centigrade                            variable        -40        215
+47 Absolute throttle position B in %                                variable          0        100
+48 Absolute throttle position C in %                                variable          0        100
+49 Accelerator pedal position D in %                                variable          0        100
+4A Accelerator pedal position E in %                                variable          0        100
+4B Accelerator pedal position F in %                                variable          0        100
+4C Commanded throttle actuator in %                                 variable          0        100
+4D Engine run time since MIL on in min                              variable          0     65,535
+4E Engine run time since faults cleared in min                      variable          0     65,535
+4F Exteral test equipment no. 1 conﬁguration information            ﬁxed
+50 Exteral test equipment no. 2 conﬁguration information            ﬁxed
+51 Fuel type used by the vehicle                                    variable
+52 Ethanol fuel %                                                   variable           0       100
+53 Absolute evaporation system vapour pressure in kPa               variable           0   327.675
+54 Evaporation system vapour pressure in Pa                         Knob 1      -32,767     32,768
+55 Short-term O2 sensor trim bank 1 and 3                           ﬁxed       -87.50%
+56 Long-term O2 sensor trim bank 1 and 3                            ﬁxed         -0.80%
+57 Short-term O2 sensor trim bank 2 and 4                           ﬁxed       -87.50%
+58 Long-term O2 sensor trim bank 2 and 4                            ﬁxed       -87.50%
+59 Absolute fuel rail pressure in kPa                               variable           0   655,350
+5A Relative accelerator pedal position in %                         variable           0       100
+5B Battery unit remaining life (hybrid) in %                        variable           0       100
+5C Engine oil temperature in Centigrade                             variable         -40       210
+5D Fuel injection timing in ?                                       variable        -210   301.992
+5E Fuel consumption in litre/hr                                     variable           0   3212.75
+5F Fuel consumption in litre/hr                                     ﬁxed
+
+
+
+                                                 11                               IMSB5010
+                                                      Command
+
+Setting the VIN:
+$VIN[VALUE]
+VIN must be 17 ASCII characters.
+
+
+example:
+$VINLFV3B28R8A3025310|
+
+
+Setting the CID:
+$CID[VALUE]
+CVN 3 to 16 ASCII characters.
+
+
+example:
+$CID8R0907115A-Q0006|
+
+Setting the CVN:
+$CVN[VALUE]
+CVN must be 8 HEX characters.
+
+
+example:
+$CVN0A19B32B|
+
+Setting the ECU Name:
+$ECU[ECU NAME]
+ECU 2 to 16 ASCII characters.
+
+
+example:
+$ECUENGINE_MODULE|
+
+return:
+OK> command successfully executed
+ERR > instruction / value was incorrect or communication error.
+
+
+IMSB5010                           12
+Command
+
+Setting the PID value:
+$PID[PID]:[VALUE]
+[PID] 2 hexadecimal digits
+[VALUE] 1 to 6 decimal digits
+
+
+example:
+set Run time since engine start (1234 seconds)
+$PID1F:1234|
+
+
+set Distance since faults (DTC) were cleared. (125km)
+$PID31:125|
+
+
+set Catalyst temperature in °C bank 1, sensor 1 (-12°C)
+$PID3C:-12|
+
+
+MODE 1 PID01 Readiness Monitors
+$SSS[HHHHHH]
+3 Hex digitsis.
+
+
+example:
+$SSS07FF00|
+
+
+
+
+                                   13                     IMSB5010
+IMSB5010   14
+Software
+
+System require:
+ Windows XP Sp3 / 7 / 8 / 10
+ Mac OS 10.9
+
+
+
+
+                               15   IMSB5010
+IMSB5010   16
+17   IMSB5010
+
