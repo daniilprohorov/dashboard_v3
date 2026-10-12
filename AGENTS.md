@@ -6,17 +6,19 @@ PlatformIO is intentionally not used: its espressif32 platform lags ESP-IDF, and
 
 ## Commands
 
-All via `scripts/idf` — wraps `idf.py` with the pinned IDF env; works from any fresh shell, no `export.sh` needed.
+Use `make` targets (root `Makefile`, wraps `scripts/idf` = `idf.py` with the pinned IDF env; works from any fresh shell, no `export.sh` needed). Call `scripts/idf` directly only for things without a target.
 
 | Task | Command |
 |---|---|
-| Install toolchain (once) | `scripts/setup.sh` |
-| Build | `scripts/idf build` |
-| Flash + log | `scripts/idf -p /dev/cu.wchusbserial* flash monitor` (monitor is interactive; agents: `flash` only, read logs with a timeout) |
-| Size report | `scripts/idf size` / `size-components` |
-| Config UI | `scripts/idf menuconfig` (interactive; prefer editing `sdkconfig.defaults`) |
+| Install toolchain (once) | `make setup` |
+| Build | `make build` (default target) |
+| Flash | `make flash` (builds first; port auto-detected from `/dev/cu.wchusbserial*`, override `PORT=...`) |
+| Flash + log | `make flash-monitor` / `make monitor` (interactive; agents: `make flash` only, read logs with a timeout) |
+| Size report | `make size` / `scripts/idf size-components` |
+| Config UI | `make menuconfig` (interactive; prefer editing `sdkconfig.defaults`) |
 | Add managed component | `scripts/idf add-dependency "espressif/<name>^<ver>"` — or edit the component's `idf_component.yml` |
-| Clean config regen | `rm sdkconfig && scripts/idf reconfigure` |
+| Clean | `make clean` / `make fullclean` |
+| Clean config regen | `make reconfigure` |
 | Fetch vendor examples | `scripts/fetch-vendor.sh` |
 
 Board serial port: the "UART" USB-C (CH343). The native USB port is disabled because GPIO19/20 are muxed to CAN.
@@ -33,7 +35,7 @@ managed_components/   downloaded deps (git-ignored, read-only)
 docs/hardware.md      pinout, IO-expander protocol, peripheral constraints — read before touching hardware
 docs/vendor/          wiki dump (.md), datasheets (pdf/ + text/ for grep)
 third_party/          vendor example repo, git-ignored, reference only
-scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh
+scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh; root Makefile wraps them
 ```
 
 ## Where to look things up
@@ -56,4 +58,4 @@ scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh
 - I2C bus is shared (expander 0x24, GT911 0x5D); reuse `board_t.i2c`, don't create a second bus on GPIO8/9.
 - CAN and native USB share GPIO19/20 (EXIO5). Keep CAN.
 - Panel rated 0–65 °C: car-cabin heat is a real constraint for backlight/CPU load decisions.
-- Done = `scripts/idf build` passes with no new warnings. On-device behavior needs a flash + serial log check; say explicitly if not verified on hardware.
+- Done = `make build` passes with no new warnings. On-device behavior needs a `make flash` + serial log check; say explicitly if not verified on hardware.
