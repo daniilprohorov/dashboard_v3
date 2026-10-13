@@ -9,14 +9,12 @@ config DASH_DEMO
 
 config DASH_CAN_BITRATE
     int "CAN bitrate, bit/s"
-    depends on !DASH_DEMO
     default 500000
     help
         OBD-II on CAN uses 500000 or 250000 (ISO 15765-4).
 
 config DASH_FUEL_TANK_L
     int "Fuel tank capacity, l"
-    depends on !DASH_DEMO
     range 1 500
     default 50
     help
