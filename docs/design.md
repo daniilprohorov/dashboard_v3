@@ -24,6 +24,8 @@ Visual reference taken from an earlier browser prototype. Only layout, style and
 
 `main/obd.c` polls OBD-II mode 01 over CAN (11-bit, `CONFIG_DASH_CAN_BITRATE`, request `0x7DF`, replies `0x7E8–0x7EF`) unless `CONFIG_DASH_DEMO` is set. Only PIDs the ECU reports as supported are polled; RPM, speed, MAF every ~50 ms cycle, the rest round robin.
 
+Demo mode is disabled by default (`# CONFIG_DASH_DEMO is not set` in `sdkconfig.defaults`).
+
 |Field|Source|
 |---|---|
 |`rpm`|PID 0C|
@@ -47,6 +49,8 @@ Unknown values render as `-` without cell fill.
 4. **Footer row** — 3 equal cells, ~40 px font: `Odometer` | `Errors msg` | `Time`.
 
 Each cell: bordered box (3 px white border, 5 px margin), small caption (~24 px) centered directly above the top border (not overlapping it), value centered in the box.
+
+Font: **B612 Regular** (Airbus cockpit-display face, OFL; Bold looked too heavy) at 100 / 40 / 24 px, 4 bpp, generated into `main/fonts/` with `lv_font_conv` (command in each file header; 100 px has digits, `-.:`, `N`, `R` only; 40/24 px have printable ASCII). Digits are forced tabular in `dashboard.c`.
 
 ## Style
 

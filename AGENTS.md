@@ -60,3 +60,17 @@ scripts/              env.sh (IDF version pin), idf, setup.sh, fetch-vendor.sh; 
 - CAN and native USB share GPIO19/20 (EXIO5). Keep CAN.
 - Panel rated 0–65 °C: car-cabin heat is a real constraint for backlight/CPU load decisions.
 - Done = `make build` passes with no new warnings. On-device behavior needs a `make flash` + serial log check; say explicitly if not verified on hardware.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in local Markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five canonical triage role names unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.

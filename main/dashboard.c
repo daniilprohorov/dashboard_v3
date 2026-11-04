@@ -9,7 +9,10 @@
 #include "lvgl.h"
 #include "palette.h"
 
-LV_FONT_DECLARE(font_montserrat_100);
+// B612 Regular (Airbus cockpit-display face, OFL), generated with lv_font_conv at 4 bpp.
+LV_FONT_DECLARE(font_b612_100);
+LV_FONT_DECLARE(font_b612_40);
+LV_FONT_DECLARE(font_b612_24);
 
 #define RPM_LIMIT    CONFIG_DASH_RPM_LIMIT
 #define RPM_MAX      ((RPM_LIMIT + 999) / 1000 * 1000) // bar scale: limit rounded up to a tick
@@ -101,7 +104,7 @@ static void make_cell(lv_obj_t *scr, int field, int x, int y, int w, int h, cons
 
     // Sibling, not child: the box would clip it. Fully above the border so a fill isn't notched.
     lv_obj_t *cap = lv_label_create(scr);
-    lv_obj_set_style_text_font(cap, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(cap, &font_b612_24, 0);
     lv_label_set_text_static(cap, captions[field]);
     lv_obj_align_to(cap, box, LV_ALIGN_OUT_TOP_MID, 0, 0);
 }
@@ -134,7 +137,7 @@ static void make_rpm_bar(lv_obj_t *scr)
         lv_obj_set_pos(tick, x - BORDER_W / 2, tick_y);
 
         lv_obj_t *lbl = lv_label_create(scr);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_font(lbl, &font_b612_24, 0);
         lv_label_set_text_fmt(lbl, "%d", i);
         lv_obj_align_to(lbl, tick, LV_ALIGN_OUT_TOP_MID, 0, -2);
     }
@@ -175,8 +178,8 @@ void dashboard_create(void)
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(scr, lv_color_white(), 0);
 
-    const lv_font_t *big = tabular_init(&tab_100, &font_montserrat_100);
-    const lv_font_t *small = tabular_init(&tab_40, &lv_font_montserrat_40);
+    const lv_font_t *big = tabular_init(&tab_100, &font_b612_100);
+    const lv_font_t *small = tabular_init(&tab_40, &font_b612_40);
 
     make_rpm_bar(scr);
     int y = BAR_H;

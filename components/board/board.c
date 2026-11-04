@@ -28,7 +28,7 @@ static const char *TAG = "board";
 #define EXIO_REG_PWM 0x05 // backlight dimming, 0..255, higher = darker
 #define EXIO_REG_ADC 0x06 // u16 LE, 10-bit, 3.3 V ref
 
-#define LCD_PCLK_HZ (24 * 1000 * 1000)
+#define LCD_PCLK_HZ (30 * 1000 * 1000) // vendor max; ~33 Hz refresh. Higher shortens LCD ghosting
 
 static i2c_master_bus_handle_t s_bus;
 static i2c_master_dev_handle_t s_exio;
