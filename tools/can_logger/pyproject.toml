@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dashboard-can"
+version = "1.0.0"
+description = "Passive dashboard_v3 CAN logger serial client"
+requires-python = ">=3.10"
+dependencies = ["pyserial>=3.5,<4"]
+
+[project.scripts]
+dashboard-can = "can_logger.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["can_logger*"]
