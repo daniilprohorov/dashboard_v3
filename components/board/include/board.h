@@ -61,6 +61,16 @@ esp_err_t board_can_validate_bitrate(uint32_t bitrate);
 // the disabled node so the caller can retry deletion; cleanup error is returned.
 esp_err_t board_can_create(uint32_t bitrate, bool listen_only, twai_node_handle_t *out);
 
+// Atomic, task-context snapshot of boot-cumulative detected RX-overrun events
+// for the single CAN controller, including earlier OBD operation. Baseline
+// after node creation and before enable; capture count is current - baseline,
+// with a final snapshot after disabling the node. Never reset by node deletion.
+// Counts IDF's detected overrun markers, NOT an exact number of lost frames;
+// zero means no markers observed, not proof of lossless hardware reception.
+// Private HAL/linker hook is deliberately pinned to ESP32-S3 + IDF v5.5.5;
+// upgrading IDF requires auditing that dependency before this code will build.
+esp_err_t board_can_get_overruns(uint64_t *out_events);
+
 #define BOARD_UART_BAUD 2000000
 
 // Runtime protocol UART0: GPIO43 TX, GPIO44 RX, 2M8N1, no hardware/software
