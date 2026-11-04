@@ -5,7 +5,8 @@ Run after installing tools/can_logger into the chosen Python environment:
 
 These are serial-peer observations, not evidence of firmware CAN filtering,
 real UART baud/reset behavior, CAN loss accounting, passivity, or UI behavior.
-No production modules are imported and no serial implementation is replaced.
+The Darwin PTY fixture adapts only its unsupported custom-baud ioctl; production
+serial configuration and real hardware errors are never replaced.
 """
 
 import csv
@@ -488,10 +489,31 @@ class CliAcceptance(unittest.TestCase):
     def test_silent_serial_link_times_out_without_inventing_final_counters(self):
         peer = self.peer()
         process = self.start(peer, duration=None, duration_ms=None)
-        # Keep the PTY open but stop every device response, including ACK replies.
-        # This tests host silence handling, not the firmware's heartbeat watchdog.
+        # Confirm the first ACK before going silent so the receive-silence
+        # deadline precedes the next outstanding command's response deadline.
+        peer.service(peer.request())
+        # Keep the PTY open but stop all subsequent device responses.
         result = self.result(peer.finish(process, respond=False), 6, "link_loss")
         self.assert_local_end(result, reason="link_loss")
+        self.assertEqual(sum(request[1] == "START" for request in peer.requests), 1)
+        self.result(peer.assert_released())
+
+    def test_unanswered_ack_is_response_timeout_while_valid_frames_continue(self):
+        peer = self.peer()
+        process = self.start(peer, duration=None, duration_ms=None)
+        peer.frame(seq=1)
+        # Withhold exactly one correlated response, not the stream. Subsequent
+        # valid frames/responses keep last_rx fresh beyond the command deadline.
+        peer.service(peer.request(), respond=False)
+        for sequence in (2, 3, 4):
+            request = peer.request(timeout=1.2)
+            peer.frame(seq=sequence, us=str(1100 + sequence))
+            peer.service(request)
+        result = self.result(peer.finish(process), 6, "response_timeout")
+        rows = self.assert_local_end(result, reason="response_timeout", frame_count=4)
+        self.assertEqual(rows[-1]["reason"], "response_timeout")
+        self.assertEqual([row["seq"] for row in rows if row["event"] == "frame"],
+                         ["1", "2", "3", "4"])
         self.assertEqual(sum(request[1] == "START" for request in peer.requests), 1)
         self.result(peer.assert_released())
 

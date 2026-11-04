@@ -17,6 +17,8 @@ dashboard-can --version
 
 Equivalent module entry point: `python -m can_logger`. `make logger-install` runs the same package installation with `PYTHON` (default `python3`); activate a virtual environment first or override `PYTHON=.venv/bin/python`. `make logger-help` shows both root and capture help; `make logger-test` runs the existing public-CLI PTY acceptance suite with that interpreter. These targets do not discover/select hardware or start capture. After editing the package, reinstall it before invoking the installed command/tests.
 
+On macOS, the acceptance fixture alone adds its isolated `tests/pty_compat` bootstrap to child `PYTHONPATH` for the exact PTY it owns. It skips pyserial's unsupported Darwin custom-baud ioctl only on that PTY and asserts the requested baud is still 2000000. No adapter is packaged or enabled by installed CLI commands, and no physical serial errors are suppressed. PTY success verifies byte-stream behavior, **not physical 2-Mbaud operation**.
+
 Complete command surface:
 
 ```text
@@ -41,9 +43,9 @@ dashboard-can status --port /dev/cu.wchusbserial1234
 dashboard-can capabilities --port /dev/cu.wchusbserial1234
 ```
 
-Port paths are examples. Linux commonly uses `/dev/ttyUSB0` or `/dev/ttyACM0`; use the actual enumerated path and appropriate serial-device permissions. `ports` probes every enumerated candidate with HELLO, records per-port failures, and marks only exact `device=dashboard_v3`, compatible-protocol peers as `is_dashboard=true`. A successful enumeration with no board (even an empty array or all failed probes) still exits 0. It never auto-selects a port. VID/PID, description or a filename alone is not device identity. Probing sends bytes to candidates: disconnect unrelated sensitive serial equipment before broad discovery.
+Port paths are examples. Linux commonly uses `/dev/ttyUSB0` or `/dev/ttyACM0`; use the actual enumerated path and appropriate serial-device permissions. `ports` enumerates **all** ports but automatically opens/HELLO-probes only USB candidates with non-null VID metadata. Non-USB/system entries remain visible with `probed:false`, `skip_reason:"no_usb_vid"` and `is_dashboard:false`; they are not opened. This avoids the observed macOS non-USB virtual-port close hang. A skipped entry is not proof that no dashboard exists there: an explicitly identified path can still be used with `status`, `capabilities` or `capture --port`.
 
-**Known initial macOS discovery defect:** in the recorded integration run, probing non-USB virtual system ports caused `ports` to block in pyserial close and exceed 30 seconds without JSON. Discovery is therefore **not yet a passing acceptance result**; see the [record](logger-acceptance.md#evidence-available-for-this-implementation). For a physically identified board use explicit `--port` queries rather than assuming this discovery run succeeded. A later discovery correction must update this contract/evidence; no completed correction is claimed here.
+USB entries have `probed:true`; failures remain per-entry `error` objects, never silently converted to a successful identity. Only exact `device=dashboard_v3`, compatible-protocol peers get `is_dashboard:true`. A successful enumeration with no board (empty, skipped or failed entries) still exits 0 and never auto-selects. VID/PID, description and filenames are candidate metadata, not identity. Probing sends bytes to USB candidates: disconnect unrelated sensitive USB serial equipment before discovery. Final post-repair discovery execution is recorded separately in the [acceptance record](logger-acceptance.md#evidence-available-for-this-implementation).
 
 The IMSB5010 ECU simulator is **not** the dashboard: its CP2102 USB serial interface uses **115200 8N1** and a different command/echo protocol. Do not pass its port to capture; do not mistake its USB echo for this logger's UART. Check the board's physical UART cable and successful HELLO identity, not merely the presence of a USB serial device.
 
@@ -99,7 +101,7 @@ UART `tx`/`tx_seq` means output enabled/fully emitted by the device, not compute
 
 ## JSON results and stable exit codes
 
-Normal `status`/`capabilities` JSON includes `ok`, `command`, `port`, `device`, `firmware_version`, integer `protocol_version`, `cli_version`, and `status` or `capabilities`. Device field values inside those two maps remain **strings** (including numbers/flags). `ports` returns `ok`, `command`, `ports`; each entry includes `port`, `description`, `hwid`, nullable numeric `vid`/`pid`, nullable `serial_number`, `is_dashboard`, plus identified device fields or `error`.
+Normal `status`/`capabilities` JSON includes `ok`, `command`, `port`, `device`, `firmware_version`, integer `protocol_version`, `cli_version`, and `status` or `capabilities`. Device field values inside those two maps remain **strings** (including numbers/flags). `ports` returns `ok`, `command`, `ports`; each entry includes `port`, `description`, `hwid`, nullable numeric `vid`/`pid`, nullable `serial_number`, boolean `is_dashboard` and boolean `probed`. Skipped entries add `skip_reason:"no_usb_vid"`; probed entries add identified `device`, `firmware_version`, integer `protocol_version`, `mode`, or `error:{code,message}`. A close failure can add `error` even after successful identification; inspect both fields.
 
 A started capture result contains `ok`, `command`, `session_id`, firmware/protocol/CLI versions, `config`, `counters`, `source`, `reason`, `output`, and `error` on failure. `config` has integer `requested_bitrate`, `effective_bitrate`, string `id_type`, `filter`, boolean `listen_only`, integer `uart_baud`, `uart_data_bits`, `uart_stop_bits`, string `uart_parity`. `counters` has integer `seq`, `tx_seq`, `ack_seq`, `sw_drops`, `hw_overruns`, and string `hw_lost_frames`. These counters come **only from device END**; without END every final-counter value is JSON `null`, even when earlier status rows exist. `source` is `device` only with END, otherwise `cli`.
 
@@ -134,7 +136,7 @@ Illustrative local link-loss result after START (exit 6), with every final count
 | 7 | Device END `user_exit` (the person left Logger). |
 | 8 | `output_error`: exclusive creation, write, flush or close failure. |
 
-Local end reasons can also be the specific failure code (`protocol_error`, `stop_timeout`, `end_timeout`, `interrupted`, `output_error`, etc.). A capture response timeout is represented as local `reason=link_loss` while the error can remain `response_timeout`. There is no public `stop` subcommand; `host_stop` is supported by the UART STOP command for another protocol client. Ctrl-C is the CLI's graceful stop action.
+Local end reasons retain the specific failure code (`response_timeout`, `protocol_error`, `stop_timeout`, `end_timeout`, `interrupted`, `output_error`, etc.). An outstanding ACK response can time out **while valid frames continue**: after START this is exit 6 with both `error.code` and local CSV/JSON `reason=response_timeout`, not `link_loss`. Physical transport errors and 3-second receive silence instead produce local `link_loss`; a device-confirmed heartbeat timeout has `source=device`, `reason=link_loss`. All local ends leave final counters unavailable. There is no public `stop` subcommand; `host_stop` is supported by UART STOP for another client. Ctrl-C is the CLI's graceful stop action.
 
 ## Timestamp and incomplete-file limits
 

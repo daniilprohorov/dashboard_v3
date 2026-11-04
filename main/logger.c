@@ -82,12 +82,13 @@ static char s_rx_line[LOGGER_LINE_MAX + 1];
 static size_t s_rx_used;
 static bool s_rx_invalid;
 static bool s_rx_cr;
-// Protected by s_rx_lock. Config/deadline are immutable while accepting.
+// Protected by s_rx_lock. Config stays immutable until node deletion joins ISR.
 static DRAM_ATTR bool s_accepting;
 static DRAM_ATTR bool s_rx_fault;
 static DRAM_ATTR uint64_t s_assigned;
 static DRAM_ATTR uint64_t s_sw_drops;
-// Protected by s_control_lock; requests do not retain caller-owned pointers.
+// Protected by s_control_lock. Pending stays set until the API consumes the
+// completion token, including after a caller times out; no caller pointers.
 static bool s_control_pending;
 static esp_err_t s_control_result;
 
@@ -254,26 +255,40 @@ static bool IRAM_ATTR receive_frame(twai_node_handle_t node,
     // Classic CAN DLC codes 9..15 also encode eight payload bytes.
     message.dlc = frame.header.dlc > 8 ? 8 : (uint8_t)frame.header.dlc;
 
-    BaseType_t woken = pdFALSE;
     portENTER_CRITICAL_ISR(&s_rx_lock);
-    if (!s_accepting || frame.header.fdf ||
-        (s_deadline_us && message.us >= s_deadline_us) ||
+    bool accepting = s_accepting;
+    uint64_t deadline_us = s_deadline_us;
+    portEXIT_CRITICAL_ISR(&s_rx_lock);
+    if (!accepting || frame.header.fdf ||
+        (deadline_us && message.us >= deadline_us) ||
         (s_config.ids == LOGGER_IDS_11 && message.bits != 11) ||
         (s_config.ids == LOGGER_IDS_29 && message.bits != 29)) {
-        portEXIT_CRITICAL_ISR(&s_rx_lock);
         return false;
     }
     bool allowed = s_config.range_count == 0;
     for (size_t i = 0; !allowed && i < s_config.range_count; ++i) {
         allowed = message.id >= s_config.ranges[i].low && message.id <= s_config.ranges[i].high;
     }
-    if (allowed) {
+    if (!allowed) {
+        return false;
+    }
+    portENTER_CRITICAL_ISR(&s_rx_lock);
+    accepting = s_accepting; // Exit can close acceptance during filtering.
+    if (accepting) {
         message.seq = ++s_assigned;
-        if (xQueueSendFromISR(s_frames, &message, &woken) != pdTRUE) {
-            ++s_sw_drops; // Drop NEW. Existing FIFO order is untouched.
-        }
     }
     portEXIT_CRITICAL_ISR(&s_rx_lock);
+    if (!accepting) {
+        return false;
+    }
+    // One node ISR serializes producers. Shutdown joins it before draining
+    // the queue/resetting config, so no frame or drop can arrive after END.
+    BaseType_t woken = pdFALSE;
+    if (xQueueSendFromISR(s_frames, &message, &woken) != pdTRUE) {
+        portENTER_CRITICAL_ISR(&s_rx_lock);
+        ++s_sw_drops; // Drop NEW. Existing FIFO order is untouched.
+        portEXIT_CRITICAL_ISR(&s_rx_lock);
+    }
     return woken == pdTRUE;
 }
 
@@ -295,34 +310,14 @@ static esp_err_t release_node(void)
     portENTER_CRITICAL(&s_rx_lock);
     s_accepting = false;
     portEXIT_CRITICAL(&s_rx_lock);
-    if (!s_node) {
-        return ESP_OK;
-    }
-    if (s_node_enabled) {
-        esp_err_t error = twai_node_disable(s_node);
-        if (error != ESP_OK) {
-            // IDF uses BUS_OFF for both disabled and actual bus-off nodes;
-            // actual bus-off is already physically quiescent and deletable.
-            twai_node_status_t state;
-            if (error != ESP_ERR_INVALID_STATE ||
-                twai_node_get_info(s_node, &state, NULL) != ESP_OK || state.state != TWAI_ERROR_BUS_OFF) {
-                record_error(error);
-                return error;
-            }
-        }
-        s_node_enabled = false;
-    }
-    update_counts(); // Includes hardware-overrun markers before shutdown.
-    twai_event_callbacks_t empty = {0};
-    esp_err_t error = twai_node_register_event_callbacks(s_node, &empty, NULL);
-    if (error == ESP_OK) {
-        error = twai_node_delete(s_node);
-    }
+    esp_err_t error = board_can_release(&s_node, &s_node_enabled);
+    // The successful delete joins callbacks before final software/hardware
+    // snapshots. On failure keep ownership/baseline for a later retry.
+    update_counts();
     if (error != ESP_OK) {
         record_error(error);
         return error;
     }
-    s_node = NULL;
     s_have_overrun_baseline = false;
     return ESP_OK;
 }
@@ -639,17 +634,17 @@ static void handle_control(void)
         }
         emit_common("@D1 S");
     } else {
+        bool was_active = s_active;
         result = stop_capture(LOGGER_REASON_USER_EXIT, true);
-        if (result == ESP_OK && !s_uart_broken) {
-            emit_common("@D1 S");
+        if (!was_active && result == ESP_OK && !s_uart_broken) {
+            emit_common("@D1 S"); // Active Exit already emitted terminal E.
         }
     }
     publish_status();
     portENTER_CRITICAL(&s_control_lock);
     s_control_result = result;
-    s_control_pending = false;
-    xSemaphoreGive(s_completion);
     portEXIT_CRITICAL(&s_control_lock);
+    xSemaphoreGive(s_completion);
 }
 
 static void logger_task(void *argument)
@@ -728,10 +723,16 @@ static esp_err_t control_request(control_t control)
     if (xSemaphoreTake(s_api_mutex, pdMS_TO_TICKS(CONTROL_TIMEOUT_MS)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
+    // Only this serialized API consumes completions. Pending is not cleared
+    // by the task before Give: a new caller must never consume a late token as
+    // its own result. A timed-out transfer stays pending until its token arrives.
+    bool completed = xSemaphoreTake(s_completion, 0) == pdTRUE;
     portENTER_CRITICAL(&s_control_lock);
+    if (completed) {
+        s_control_pending = false;
+    }
     bool pending = s_control_pending;
     if (!pending) {
-        xSemaphoreTake(s_completion, 0); // Consume an earlier timed-out result.
         s_control_pending = true;
     }
     portEXIT_CRITICAL(&s_control_lock);
@@ -750,6 +751,7 @@ static esp_err_t control_request(control_t control)
     } else {
         portENTER_CRITICAL(&s_control_lock);
         result = s_control_result;
+        s_control_pending = false;
         portEXIT_CRITICAL(&s_control_lock);
     }
     xSemaphoreGive(s_api_mutex);

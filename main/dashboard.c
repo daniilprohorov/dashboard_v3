@@ -115,7 +115,7 @@ static void make_cell(lv_obj_t *scr, int field, int x, int y, int w, int h, cons
         // Caption, value and empty box all remain touchable, with or without
         // an ECU/application error. The warning itself is never a menu label.
         lv_obj_set_clickable(box, true);
-        lv_obj_add_flag(val, LV_OBJ_FLAG_EVENT_BUBBLE);
+        lv_obj_set_event_bubble(val, true);
         lv_obj_set_clickable(cap, true);
         errors_caption = cap;
     }

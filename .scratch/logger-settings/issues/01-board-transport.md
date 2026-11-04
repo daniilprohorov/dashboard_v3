@@ -2,11 +2,16 @@
 
 Status: ready-for-agent
 Blocked by: none
+Implementation: completed
+Implementation commit: [e488b6a](https://github.com/daniilprohorov/dashboard_v3/commit/e488b6a), [b443270](https://github.com/daniilprohorov/dashboard_v3/commit/b443270)
+Review repair: `impl/logger-review-fixes` (shared CAN release helper and lifecycle fixes)
+PR: [#1](https://github.com/daniilprohorov/dashboard_v3/pull/1)
+Acceptance evidence: [host record and unverified hardware gates](../../../docs/logger-acceptance.md); final verification belongs to the integration owner.
 
 ## Context
 
 - Spec: [../spec.md](../spec.md) (normative, entire acceptance scope).
-- Shared implementation contract: `/tmp/dashboard-logger-contract.md` (frozen cross-ticket APIs/wire/CSV).
+- Published implementation contracts: [UART/CSV](../../../docs/logger-protocol.md), [operator/JSON](../../../docs/logger.md).
 
 ## Target
 

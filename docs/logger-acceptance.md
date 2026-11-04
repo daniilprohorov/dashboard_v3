@@ -9,16 +9,16 @@ Integration-owner observations on macOS arm64, 2026-11-05:
 | Area | Observed result / limit |
 |---|---|
 | Host runtime | `/opt/homebrew/bin/python3`, Python **3.14.6**. This is one tested runtime, not evidence that every supported Python version was exercised. |
-| Installation/help | Installed `dashboard-can --help` succeeded. Full final CLI suite results are recorded below when supplied by the integration owner; this statement alone is not capture evidence. |
-| Integrated firmware build | Initial `make reconfigure && make build` succeeded; app binary size **0xb23e0**. That pass emitted a new deprecated `lv_obj_add_flag` warning at `main/dashboard.c:118`; therefore it was **not** a clean no-new-warning acceptance pass. Reconfigure also emitted a CMake “Missing kconfig” rerun warning. Final post-fix results must supersede this initial observation before declaring the build gate clean. |
-| Discovery before correction | `dashboard-can ports` exceeded **30 s** on non-USB macOS virtual ports (`Bluetooth-Incoming-Port`, `VXS`, `debug-console`, `wlan-debug`, all without VID metadata). A minimized run's stack showed blocking `serial.close` in discovery. This is a recorded defect, not a passing discovery run. The final USB-candidate-only auto-probe behavior and its observed result must be recorded with the final checks. |
-| Initial macOS PTY limitation | A raw macOS PTY status smoke exited **3** with structured `port_error` / `ENOTTY` when pyserial attempted its 2-Mbaud `IOSSIOSPEED` ioctl. The initial suite could not handshake and was stopped after diagnosing this systemic fixture limitation. It is not passing capture evidence. A narrowly scoped test-only PTY baud adapter is required; production UART settings must remain fixed 2M8N1. |
+| Installation/help | Installed `dashboard-can --help` succeeded. The installed-command PTY capture below also succeeded with exit 0 under the throwaway Darwin adapter. |
+| Integrated firmware build | Before repair, `make reconfigure && make build` succeeded; app binary size **0xb23e0**, with a new deprecated `lv_obj_add_flag` warning and CMake “Missing kconfig” rerun warning. The repair replaces the deprecated call; a clean post-repair build is **not yet executed here** and belongs to the integration owner. |
+| Discovery | Before repair, `dashboard-can ports` exceeded **30 s** on non-USB macOS virtual ports (`Bluetooth-Incoming-Port`, `VXS`, `debug-console`, `wlan-debug`, no VID). Stack evidence located blocking `serial.close`. The implementation now lists these as `probed:false`, `skip_reason:no_usb_vid` without opening them; USB candidates are probed and real failures retained. Post-repair execution remains for the integration owner. |
+| macOS PTY acceptance before repair | Initial raw PTY open failed with exit **3**, `port_error` / `ENOTTY` from unsupported `IOSSIOSPEED`. After the throwaway PTY-only adapter, the existing **41 tests passed in 29.233 s**. That is pre-repair host-consumer evidence, not a final suite pass or physical baud evidence. The equivalent narrow adapter is now integrated in the fixture so the normal command below needs no external bootstrap. The new ongoing-frame response-timeout regression has not yet been run here. |
 | Linker integration | Integration-owner inspection found `__wrap_twai_hal_read_rx_fifo` at **0x4037abd4** in IRAM in `build/dashboard.map`, referenced by the ESP TWAI on-chip driver object; `board_can_get_overruns` was referenced by logger. This proves hook linkage, **not** that physical overruns were observed or counted correctly. |
 | Physical board / serial | Initial `/dev/cu.*`, `/dev/ttyUSB*`, `/dev/ttyACM*` inspection found no connected board device. **No CH343, real UART 2 Mbaud, CAN, touch or power-cycle evidence** is available from that inspection. No flashing or board acceptance is claimed. |
 | Linux | Docker executable existed, but daemon connection failed because its socket was absent. **No Linux execution evidence**. Linux support is an implementation target, not an observed Linux pass. |
 | Hardware throughput / loss | **Unverified**. No measured sustained rate, lossless threshold, ACK/passivity or physical overrun result. 200000 bytes/s is a theoretical UART bound only. |
 
-The initial build/discovery results are preserved so a later passing check cannot be confused with an earlier incomplete gate. The integration owner performs final checks once changes are integrated; the documentation worker does not run builds/tests/formatters independently.
+These observations preserve the historical failures and adapted successes without calling either a final post-repair gate. The integration owner performs final checks after integration; this repair does not pre-claim their results. Linkage is not runtime overflow proof; all physical and Linux limitations above remain open.
 
 ## Reproducible host acceptance boundary
 
@@ -30,9 +30,31 @@ python -m unittest discover -s tools/can_logger/tests -v
 make logger-test PYTHON=python
 ```
 
-The suite launches the public `python -m can_logger` subprocess against POSIX PTYs, observes outgoing UART requests, JSON, exit status and event CSV, and uses new temporary files/ports per scenario. It can run on macOS/Linux; execution on one does not prove the other. The serial peer emits controlled bytes rather than running firmware or generating physical CAN. macOS PTYs do not support the physical 2-Mbaud `IOSSIOSPEED` ioctl; a test-only adapter may skip that ioctl for actual Darwin PTY descriptors, never for CH343 or the production transport. Such byte-stream tests are **not physical 2-Mbaud verification**. Retain command, OS/Python/CLI revision, pass/fail/skip counts, and representative **actually observed** stdout/CSV/request-response output separately from the illustrative syntax in the reference.
+The suite launches the public `python -m can_logger` subprocess against POSIX PTYs, observes outgoing UART requests, JSON, exit status and event CSV, and uses new temporary files/ports per scenario. It can run on macOS/Linux; execution on one does not prove the other. The serial peer emits controlled bytes, not firmware or physical CAN. A peer fails promptly with child stdout/stderr if the CLI dies before its next request.
 
-Coverage to record from the final executed suite: required options and structured argument errors; exact/range/both-ID filter boundaries and normalization; zero-length/RTR/padded frames; incompatible version and malformed active stream; correlated responses amid async frames; no false successful configuration; device duration and Ctrl-C; repeat/port release; user_exit versus local link loss; quiet ACK/heartbeat; sequence gaps and distinct software/hardware metadata; unavailable final counters; incomplete output; output creation/write/close failures. These are host-consumer observations, not proof that the firmware performs physical filtering/drop-new or timing correctly.
+macOS PTYs cannot implement the physical 2-Mbaud `IOSSIOSPEED` ioctl. Only `SerialPeer.launch` supplies the test-only `tests/pty_compat/sitecustomize.py` bootstrap and its exact owned PTY path to the subprocess environment. On Darwin that adapter bypasses only pyserial's custom-baud operation for that exact `/dev/ttys<digits>` descriptor, asserting baud 2000000. All other descriptors use the real operation and errors. It is outside the packaged `can_logger` modules; installed commands have no compatibility flag/fallback. No caller needs a global `PYTHONPATH` change. Such tests are **not physical 2-Mbaud verification**.
+
+Coverage includes required options/structured errors; exact/range/both-ID boundaries and normalization; zero-length/RTR/padded frames; incompatible version/malformed active streams; correlated responses amid async frames; no false confirmed configuration; device duration/Ctrl-C; repeat/port release; user_exit versus local link loss and outstanding `response_timeout` with ongoing frames; quiet ACK/heartbeat; sequence gaps and distinct software/hardware metadata; null/blank local terminal counters; incomplete output; output failures. Coverage describes intended scenarios, not a post-repair pass claim.
+
+### Observed installed-command PTY capture
+
+The integration owner ran `PYTHONPATH=/tmp/dashboard-pty-compat /tmp/dashboard-logger-venv/bin/python /tmp/dashboard-logger-smoke.py`. That harness launched the installed executable (not a direct call into CLI internals):
+
+```text
+/tmp/dashboard-logger-venv/bin/dashboard-can capture --port <raw PTY allocated by harness> --bitrate 500000 --ids both --allow 1-2 --output /tmp/dashboard-logger-smoke.csv --duration 1
+```
+
+Observed exit **0**, `source=device`, `reason=duration`, `seq=tx_seq=2`, `sw_drops=1`, `hw_overruns=1`, `hw_lost_frames=unknown`. Here “device” is protocol provenance from a controlled serial peer, **not a physical dashboard**; the counters are fixture-supplied metadata, not measured CAN losses. The actual CSV is reproduced unchanged below, including the host clock's **2026-11-04 UTC** values (the record was assembled on local 2026-11-05; no timestamps were normalized). The test-only PTY ioctl adaptation was active, so UART metadata records the requested settings, not a measured physical speed.
+
+```csv
+event,session_id,firmware_version,protocol_version,cli_version,host_utc,device_us,requested_bitrate,effective_bitrate,id_type,filter,listen_only,uart_baud,uart_data_bits,uart_parity,uart_stop_bits,seq,id_bits,can_id,rtr,dlc,data_hex,state,tx_seq,ack_seq,sw_drops,hw_overruns,hw_lost_frames,reason,source
+start,0123456789ABCDEF,pty-acceptance-1,1,1.0.0,2026-11-04T22:48:19.485991Z,1000,,,,,,,,,,,,,,,,,,,,,,,
+config,0123456789ABCDEF,,,,2026-11-04T22:48:19.486139Z,,500000,500000,both,00000001-00000002,1,2000000,8,N,1,,,,,,,,,,,,,,
+status,0123456789ABCDEF,,,,2026-11-04T22:48:19.486304Z,2000,,,,,,,,,,0,,,,,,capturing,0,0,0,0,unknown,none,device
+frame,0123456789ABCDEF,,,,2026-11-04T22:48:19.486386Z,1100,,,,,,,,,,1,11,001,0,2,0001,,,,,,,,
+frame,0123456789ABCDEF,,,,2026-11-04T22:48:19.486441Z,1200,,,,,,,,,,2,29,00000001,1,8,-,,,,,,,,
+end,0123456789ABCDEF,,,,2026-11-04T22:48:19.486507Z,2000,,,,,,,,,,2,,,,,,logger_idle,2,0,1,1,unknown,duration,device
+```
 
 ## Required physical bench
 
