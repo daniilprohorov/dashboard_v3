@@ -1,7 +1,7 @@
-# CLI behavioral acceptance and actual operator contracts
+# CLI behavioral acceptance
 
 Status: ready-for-agent
-Blocked by: 04,05
+Blocked by: 04
 
 ## Context
 
@@ -10,11 +10,11 @@ Blocked by: 04,05
 
 ## Target
 
-tools/can_logger tests, docs/design.md, new CLI/UART/CSV guide and acceptance evidence, Makefile
+tools/can_logger tests
 
 ## Change
 
-Add deterministic public CLI subprocess/PTY acceptance scenarios across spec boundaries; no private-implementation tests. Document actual protocol/CSV/exit examples, installation/discovery/repeat workflow, timing/ACK/loss limitations, hardware bench acceptance and unverified criteria. Update project discoverability and obsolete display-only/11bit docs. No pretend hardware evidence. Parent runs build and smoke after final merge.
+Add deterministic public CLI subprocess/PTY acceptance scenarios across spec boundaries; no private-implementation tests. Cover strict boot/active stream handling, async command correlation, exact configuration, frame metadata, losses/unknown counts, timer/Ctrl-C/user_exit/link loss, repeat captures, invalid arguments, version/rejection and JSON exit codes. Serial-peer evidence never proves CAN/CH343/UI. Parent runs tests and smoke after final merge. Actual operator docs belong ticket 07, allowing tests to proceed independently of firmware/UI.
 
 ## Acceptance
 
