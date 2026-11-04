@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "lvgl.h"
 
 // Screen fields, in layout order.
 enum {
@@ -32,11 +33,17 @@ typedef struct {
     uint8_t hour, minute;
 } dash_data_t;
 
-// Builds the screen on the active display. Call with the LVGL lock held.
-void dashboard_create(void);
+// Builds retained widgets on the active display. Call with the LVGL lock held.
+// Errors msg remains an ECU warning field and is always a Settings touch target.
+void dashboard_create(lv_event_cb_t settings_callback);
 
 // Refreshes all fields. Call with the LVGL lock held (or from the LVGL task).
 void dashboard_update(const dash_data_t *d);
 
-// Starts an LVGL timer that sweeps all fields up to their maxima and back.
-void dashboard_demo_start(void);
+// Adds app/startup failures without replacing the current ECU warning.
+// Call with the LVGL lock held; NULL clears only the application error.
+void dashboard_set_app_error(const char *error);
+
+// Creates one demo timer, then pauses/resumes it as ownership changes.
+// Call with the LVGL lock held. Does not create OBD tasks or touch CAN.
+void dashboard_demo_set_enabled(bool enabled);

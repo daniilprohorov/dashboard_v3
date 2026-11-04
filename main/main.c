@@ -1,13 +1,9 @@
 #include <assert.h>
 
 #include "board.h"
-#include "dashboard.h"
-#include "obd.h"
-#include "esp_log.h"
+#include "app_controller.h"
+#include "app_ui.h"
 #include "esp_lv_adapter.h"
-#include "sdkconfig.h"
-
-static const char *TAG = "main";
 
 void app_main(void)
 {
@@ -37,15 +33,12 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lv_adapter_start());
 
     ESP_ERROR_CHECK(esp_lv_adapter_lock(-1));
-    dashboard_create();
-#if CONFIG_DASH_DEMO
-    dashboard_demo_start();
-#endif
+    app_ui_create();
     esp_lv_adapter_unlock();
-#if !CONFIG_DASH_DEMO
-    ESP_ERROR_CHECK(obd_start());
-#endif
+
+    // All synchronous OBD/logger lifecycle operations run on the controller,
+    // never while holding LVGL's lock (OBD may be waiting to publish its data).
+    ESP_ERROR_CHECK(app_controller_start());
 
     ESP_ERROR_CHECK(board_backlight_set(100));
-    ESP_LOGI(TAG, "up");
 }
