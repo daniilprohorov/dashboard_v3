@@ -3,8 +3,9 @@
 
 IDF  := scripts/idf
 PORT ?= $(firstword $(wildcard /dev/cu.wchusbserial*))
+PYTHON ?= python3
 
-.PHONY: all build flash monitor flash-monitor size clean fullclean reconfigure menuconfig setup check-port
+.PHONY: all build flash monitor flash-monitor size clean fullclean reconfigure menuconfig setup check-port help logger-install logger-help logger-test
 
 all: build
 
@@ -41,3 +42,23 @@ setup:
 
 check-port:
 	@test -n "$(PORT)" || { echo "No /dev/cu.wchusbserial* found; pass PORT=..." >&2; exit 1; }
+
+help:
+	@printf '%s\n' \
+	  'Firmware: make setup | build | flash PORT=... | monitor PORT=... | size' \
+	  'Logger (activate a Python >=3.10 venv first; override PYTHON=...):' \
+	  '  make logger-install  # install tools/can_logger and pyserial' \
+	  '  make logger-help     # actual root/capture command help' \
+	  '  make logger-test     # public CLI serial-peer acceptance, no hardware proof' \
+	  'Docs: docs/logger.md, docs/logger-protocol.md, docs/logger-acceptance.md' \
+	  'Close capture/monitor before flashing; UART has one owner.'
+
+logger-install:
+	$(PYTHON) -m pip install ./tools/can_logger
+
+logger-help:
+	$(PYTHON) -m can_logger --help
+	$(PYTHON) -m can_logger capture --help
+
+logger-test:
+	$(PYTHON) -m unittest discover -s tools/can_logger/tests -v

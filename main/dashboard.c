@@ -36,7 +36,11 @@ static const char *const captions[DASH_COUNT] = {
 static lv_obj_t *values[DASH_COUNT];
 static lv_obj_t *boxes[DASH_COUNT];
 static lv_obj_t *rpm_bar;
+static lv_obj_t *errors_caption;
 static bool rpm_warn;
+static char ecu_error[64];
+static char app_error[64];
+static lv_timer_t *demo_timer;
 
 // Tabular-figure wrapper: every digit advances by the widest digit and is centred in
 // that slot, so changing values don't make the text jitter. Kerning around digits is off.
@@ -107,6 +111,14 @@ static void make_cell(lv_obj_t *scr, int field, int x, int y, int w, int h, cons
     lv_obj_set_style_text_font(cap, &font_b612_24, 0);
     lv_label_set_text_static(cap, captions[field]);
     lv_obj_align_to(cap, box, LV_ALIGN_OUT_TOP_MID, 0, 0);
+    if (field == DASH_ERR) {
+        // Caption, value and empty box all remain touchable, with or without
+        // an ECU/application error. The warning itself is never a menu label.
+        lv_obj_set_clickable(box, true);
+        lv_obj_set_event_bubble(val, true);
+        lv_obj_set_clickable(cap, true);
+        errors_caption = cap;
+    }
 }
 
 static void make_row(lv_obj_t *scr, int first, int count, int y, int h, const lv_font_t *font)
@@ -169,7 +181,7 @@ static void blink_tick(lv_timer_t *t)
     }
 }
 
-void dashboard_create(void)
+void dashboard_create(lv_event_cb_t settings_callback)
 {
     lv_obj_t *scr = lv_screen_active();
     lv_obj_clean(scr);
@@ -188,6 +200,8 @@ void dashboard_create(void)
     make_row(scr, DASH_WTMP, 7, y, SECONDARY_H, small);
     y += SECONDARY_H;
     make_row(scr, DASH_ODO, 3, y, FOOTER_H, small);
+    lv_obj_add_event_cb(boxes[DASH_ERR], settings_callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(errors_caption, settings_callback, LV_EVENT_CLICKED, NULL);
     lv_timer_create(blink_tick, BLINK_MS, NULL);
 }
 
@@ -196,6 +210,28 @@ static void set_text(int field, const char *text)
 {
     if (strcmp(lv_label_get_text(values[field]), text) != 0) {
         lv_label_set_text(values[field], text);
+    }
+}
+
+static void render_errors(void)
+{
+    char combined[sizeof ecu_error + sizeof app_error + 2];
+    if (app_error[0]) {
+        snprintf(combined, sizeof combined, "%s\n%s",
+                 ecu_error[0] ? ecu_error : "-", app_error);
+    } else {
+        snprintf(combined, sizeof combined, "%s", ecu_error[0] ? ecu_error : "-");
+    }
+    set_text(DASH_ERR, combined);
+}
+
+void dashboard_set_app_error(const char *error)
+{
+    const char *value = error ? error : "";
+    if (strcmp(app_error, value) != 0) {
+        snprintf(app_error, sizeof app_error, "%s", value);
+        lv_obj_set_style_text_font(values[DASH_ERR], app_error[0] ? &font_b612_24 : &tab_40.font, 0);
+        render_errors();
     }
 }
 
@@ -304,7 +340,8 @@ void dashboard_update(const dash_data_t *d)
     if (known(d, DASH_ODO)) {
         set_int(DASH_ODO, d->odometer);
     }
-    set_text(DASH_ERR, (d->errors && d->errors[0]) ? d->errors : "-");
+    snprintf(ecu_error, sizeof ecu_error, "%s", d->errors ? d->errors : "");
+    render_errors();
 
     if (known(d, DASH_TIME)) {
         char hhmm[8];
@@ -361,7 +398,15 @@ static void demo_tick(lv_timer_t *t)
     dashboard_update(&d);
 }
 
-void dashboard_demo_start(void)
+void dashboard_demo_set_enabled(bool enabled)
 {
-    lv_timer_create(demo_tick, DEMO_TICK_MS, NULL);
+    static bool was_enabled;
+    if (enabled == was_enabled) { return; }
+    was_enabled = enabled;
+    if (!demo_timer && enabled) {
+        demo_timer = lv_timer_create(demo_tick, DEMO_TICK_MS, NULL);
+    } else if (demo_timer) {
+        if (enabled) { lv_timer_resume(demo_timer); }
+        else { lv_timer_pause(demo_timer); }
+    }
 }

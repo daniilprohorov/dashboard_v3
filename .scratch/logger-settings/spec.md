@@ -2,6 +2,13 @@
 
 Status: ready-for-agent
 
+Implementation pointer (requirements below unchanged): completed across **seven**
+local tickets in [issues/](issues/), published in [PR #1](https://github.com/daniilprohorov/dashboard_v3/pull/1).
+Integrated implementation: `943cf62`; post-review repair branch: `impl/logger-review-fixes`.
+Actual contracts: [operator/JSON](../../docs/logger.md), [UART/CSV](../../docs/logger-protocol.md).
+Evidence and still-unverified hardware/Linux acceptance: [record](../../docs/logger-acceptance.md).
+Implementation completion is not a claim of final build, host-suite or hardware acceptance.
+
 ## Problem Statement
 
 Водителю нужен доступ к настройкам из дашборда и выбор подходящего OBD-II CAN-протокола без пересборки прошивки. Сейчас дашборд использует только 11-битный OBD-опрос с compile-time скоростью, а ячейка `Errors msg` не поддерживает переход в настройки.

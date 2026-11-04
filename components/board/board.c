@@ -7,6 +7,7 @@
 #include "esp_twai_onchip.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "soc/soc_caps.h"
 
 static const char *TAG = "board";
 
@@ -177,8 +178,78 @@ esp_err_t board_init(uint8_t num_fbs, board_t *out)
     return ESP_OK;
 }
 
-esp_err_t board_can_new(uint32_t bitrate, twai_node_handle_t *out)
+static esp_err_t can_timing(uint32_t bitrate, twai_timing_advanced_config_t *out)
 {
+    // Pinned S3 LL: even BRP [2,16384], combined prop+seg1 [1,16],
+    // seg2 [1,8]. Do not use IDF's basic timing search: it rounds bitrate and
+    // can pick an odd BRP. The APB source is 80 MHz (locked by the TWAI driver
+    // while enabled if power management is configured).
+    const uint32_t clock_hz = 80000000;
+    if (bitrate < 1000 || bitrate > 1000000 || clock_hz % bitrate != 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    const uint32_t divider = clock_hz / bitrate;
+    const uint32_t sample_permill = bitrate >= 800000 ? 750 : (bitrate >= 500000 ? 800 : 875);
+    uint32_t best_error = UINT32_MAX;
+    uint32_t best_quanta = 0;
+    twai_timing_advanced_config_t best = {0};
+    // Prefer the closest conventional sample point, then more quanta per bit.
+    for (uint32_t quanta = 25; quanta >= 3; --quanta) {
+        if (divider % quanta != 0) {
+            continue;
+        }
+        const uint32_t brp = divider / quanta;
+        if (brp < SOC_TWAI_BRP_MIN || brp > SOC_TWAI_BRP_MAX || (brp & 1)) {
+            continue;
+        }
+        for (uint32_t seg2 = 1; seg2 <= 8 && seg2 + 1 < quanta; ++seg2) {
+            const uint32_t seg1 = quanta - 1 - seg2;
+            if (seg1 > 16) {
+                continue;
+            }
+            const int32_t delta = (int32_t)((1 + seg1) * 1000) - (int32_t)(sample_permill * quanta);
+            const uint32_t error = delta < 0 ? (uint32_t)-delta : (uint32_t)delta;
+            if (best_quanta == 0 || error * best_quanta < best_error * quanta) {
+                best = (twai_timing_advanced_config_t){
+                    .brp = brp,
+                    .prop_seg = 0, // seg1 already includes propagation time
+                    .tseg_1 = seg1,
+                    .tseg_2 = seg2,
+                    .sjw = 1,
+                    .ssp_offset = 0, // no triple sampling
+                };
+                best_error = error;
+                best_quanta = quanta;
+            }
+        }
+    }
+    if (best_quanta == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *out = best;
+    return ESP_OK;
+}
+
+esp_err_t board_can_validate_bitrate(uint32_t bitrate)
+{
+    twai_timing_advanced_config_t timing;
+    return can_timing(bitrate, &timing);
+}
+
+esp_err_t board_can_create(uint32_t bitrate, bool listen_only, twai_node_handle_t *out)
+{
+    if (!out) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *out = NULL;
+    twai_timing_advanced_config_t timing;
+    esp_err_t err = can_timing(bitrate, &timing);
+    if (err != ESP_OK) {
+        return err; // reject before pin routing or node allocation
+    }
+    if (!s_exio) {
+        return ESP_ERR_INVALID_STATE;
+    }
     ESP_RETURN_ON_ERROR(board_exio_set(BOARD_EXIO_USB_CAN_SEL, true), TAG, "can sel");
     const twai_onchip_node_config_t cfg = {
         .io_cfg = {
@@ -187,9 +258,59 @@ esp_err_t board_can_new(uint32_t bitrate, twai_node_handle_t *out)
             .quanta_clk_out = GPIO_NUM_NC,
             .bus_off_indicator = GPIO_NUM_NC,
         },
-        .bit_timing = {.bitrate = bitrate},
+        .clk_src = TWAI_CLK_SRC_APB,
+        // The factory API requires basic timing; use a known-exact bootstrap
+        // while disabled, then replace it with the validated explicit timing.
+        .bit_timing = {.bitrate = 500000},
+        .timestamp_resolution_hz = 1000000,
         .fail_retry_cnt = 0, // single shot: an unacked frame must not flood the bus
         .tx_queue_depth = 4,
+        .flags.enable_listen_only = listen_only,
     };
-    return twai_new_node_onchip(&cfg, out);
+    err = twai_new_node_onchip(&cfg, out);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = twai_node_reconfig_timing(*out, &timing, NULL);
+    if (err != ESP_OK) {
+        const esp_err_t cleanup_err = twai_node_delete(*out);
+        if (cleanup_err != ESP_OK) {
+            return cleanup_err; // preserve the handle for caller-owned cleanup
+        }
+        *out = NULL;
+    }
+    return err;
+}
+
+esp_err_t board_can_release(twai_node_handle_t *node, bool *enabled)
+{
+    if (!node || !enabled) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!*node) {
+        return ESP_OK;
+    }
+    if (*enabled) {
+        esp_err_t err = twai_node_disable(*node);
+        if (err == ESP_ERR_INVALID_STATE) {
+            // IDF v5.5.5 uses BUS_OFF for both disabled and real bus-off.
+            // Both are physically stopped and can be deleted.
+            twai_node_status_t status;
+            err = twai_node_get_info(*node, &status, NULL);
+            if (err == ESP_OK && status.state != TWAI_ERROR_BUS_OFF) {
+                err = ESP_ERR_INVALID_STATE;
+            }
+        }
+        if (err != ESP_OK) {
+            return err;
+        }
+        *enabled = false;
+    }
+    // IDF frees the interrupt on its owning core (blocking IPC when needed).
+    // Keep callbacks/context alive until this joins any in-flight callback.
+    esp_err_t err = twai_node_delete(*node);
+    if (err == ESP_OK) {
+        *node = NULL;
+    }
+    return err;
 }

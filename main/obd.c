@@ -1,30 +1,39 @@
-// OBD-II (SAE J1979, ISO 15765-4 11-bit) poller: requests mode 01 PIDs on CAN
-// and feeds the dashboard. Only single-frame replies are needed for mode 01.
+// Restartable ISO 15765-4 OBD-II mode 01 poller (11/29-bit addressing).
+// Only single-frame replies are needed for the dashboard's mode 01 PIDs.
 #include "obd.h"
 
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "board.h"
 #include "dashboard.h"
-#include "esp_check.h"
+#include "esp_attr.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_lv_adapter.h"
 #include "esp_twai.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/idf_additions.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
 static const char *TAG = "obd";
 
-#define OBD_REQ_ID      0x7DF // functional broadcast request
-#define OBD_RESP_ID     0x7E8 // ECU replies 0x7E8..0x7EF
-#define OBD_RESP_MASK   0x7F8
+#define OBD_REQ_STD     0x7DFu
+#define OBD_RESP_STD    0x7E8u
+#define OBD_MASK_STD    0x7F8u
+#define OBD_REQ_EXT     0x18DB33F1u // functional request, external tester F1
+#define OBD_RESP_EXT    0x18DAF100u // physical replies addressed to tester F1
+#define OBD_MASK_EXT    0x1FFFFF00u // ECU source address is the low byte
 #define OBD_TIMEOUT_MS  50    // J1979 P2 max
 #define OBD_CYCLE_MS    50    // min period of one poll cycle / screen refresh
 #define OBD_MAX_MISSES  5     // consecutive timeouts before the ECU counts as lost
 #define OBD_RETRY_MS    1000  // pause between discovery attempts
+#define OBD_UI_WAIT_MS  50
+#define OBD_STOP_MS     500
 
 #define PID_STATUS   0x01
 #define PID_ECT      0x05
@@ -42,28 +51,45 @@ static const uint8_t fast_pids[] = {PID_RPM, PID_SPEED, PID_MAF};
 static const uint8_t slow_pids[] = {PID_ECT, PID_OIL_TEMP, PID_AMBIENT, PID_FUEL_LVL, PID_ODOMETER, PID_STATUS};
 
 typedef struct {
-    uint32_t id;
+    // The ISR validates address, format and RTR before enqueueing.
     uint8_t len;
     uint8_t data[8];
 } rx_msg_t;
 
 static twai_node_handle_t s_node;
 static QueueHandle_t s_rx;
+static SemaphoreHandle_t s_done;
+static TaskHandle_t s_worker;
+static atomic_bool s_stop_requested;
+static bool s_worker_joined;
+static bool s_node_enabled;
+static bool s_extended;
+// IDF queues frame POINTERS, not copies. Keep this frame and payload alive and
+// unchanged until wait_all_done succeeds (or the node has been deleted).
+static uint8_t s_tx_data[8];
+static twai_frame_t s_tx_frame;
 static uint32_t s_supported[8]; // mode 01 PIDs 0x01..0xFF, MSB-first per 32-PID block
 static uint32_t s_maf_x100;     // g/s × 100
+static bool s_maf_valid;
 static char s_errors[24];
 
-static bool on_rx(twai_node_handle_t node, const twai_rx_done_event_data_t *edata, void *ctx)
+static bool IRAM_ATTR on_rx(twai_node_handle_t node, const twai_rx_done_event_data_t *edata, void *ctx)
 {
     rx_msg_t m;
     twai_frame_t f = {.buffer = m.data, .buffer_len = sizeof m.data};
     if (twai_node_receive_from_isr(node, &f) != ESP_OK) {
         return false;
     }
-    m.id = f.header.id;
-    m.len = f.header.dlc > sizeof m.data ? sizeof m.data : f.header.dlc;
+    // The S3 hardware acceptance filter alone cannot guarantee IDE/RTR.
+    uint32_t mask = s_extended ? OBD_MASK_EXT : OBD_MASK_STD;
+    uint32_t reply = s_extended ? OBD_RESP_EXT : OBD_RESP_STD;
+    if (f.header.ide != s_extended || f.header.rtr || f.header.fdf ||
+        f.header.dlc > sizeof m.data || (f.header.id & mask) != reply) {
+        return false;
+    }
+    m.len = f.header.dlc;
     BaseType_t woken = pdFALSE;
-    xQueueSendFromISR(s_rx, &m, &woken);
+    xQueueSendFromISR((QueueHandle_t)ctx, &m, &woken);
     return woken == pdTRUE;
 }
 
@@ -84,29 +110,49 @@ static void recover_if_bus_off(void)
 // Mode 01 request. Copies reply payload (after the PID byte) to out[4]; returns its length or -1.
 static int request(uint8_t pid, uint8_t out[4])
 {
+    if (atomic_load(&s_stop_requested)) {
+        return -1;
+    }
+    // Never overwrite the driver's outstanding frame on a missing ACK/bus-off.
+    if (twai_node_transmit_wait_all_done(s_node, 0) != ESP_OK) {
+        recover_if_bus_off();
+        return -1;
+    }
     xQueueReset(s_rx); // drop late replies to earlier requests
-
-    uint8_t req[8] = {0x02, 0x01, pid};
-    twai_frame_t f = {.header = {.id = OBD_REQ_ID, .dlc = 8}, .buffer = req, .buffer_len = sizeof req};
-    if (twai_node_transmit(s_node, &f, OBD_TIMEOUT_MS) != ESP_OK) {
+    memset(s_tx_data, 0, sizeof s_tx_data);
+    s_tx_data[0] = 0x02;
+    s_tx_data[1] = 0x01;
+    s_tx_data[2] = pid;
+    s_tx_frame = (twai_frame_t) {
+        .header = {.id = s_extended ? OBD_REQ_EXT : OBD_REQ_STD, .dlc = 8, .ide = s_extended},
+        .buffer = s_tx_data,
+        .buffer_len = sizeof s_tx_data,
+    };
+    if (twai_node_transmit(s_node, &s_tx_frame, 0) != ESP_OK) {
         recover_if_bus_off();
         return -1;
     }
 
-    TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(OBD_TIMEOUT_MS);
+    TickType_t start = xTaskGetTickCount();
+    TickType_t timeout = pdMS_TO_TICKS(OBD_TIMEOUT_MS);
     rx_msg_t m;
-    for (;;) {
-        TickType_t now = xTaskGetTickCount();
-        if (now >= deadline || xQueueReceive(s_rx, &m, deadline - now) != pdTRUE) {
+    while (!atomic_load(&s_stop_requested)) {
+        TickType_t elapsed = xTaskGetTickCount() - start; // wrap-safe
+        if (elapsed >= timeout || xQueueReceive(s_rx, &m, timeout - elapsed) != pdTRUE) {
             return -1;
         }
-        // Single frame: [len, 0x41, pid, data...]
+        if (m.len < 3) {
+            continue;
+        }
+        // ISO-TP single frame: [len, 0x41, pid, data...].
         uint8_t n = m.data[0];
-        if (m.len >= 3 && n >= 2 && n <= 7 && n < m.len && m.data[1] == 0x41 && m.data[2] == pid) {
-            memcpy(out, &m.data[3], n - 2 > 4 ? 4 : n - 2);
-            return n - 2;
+        if (n >= 2 && n <= 7 && n < m.len && m.data[1] == 0x41 && m.data[2] == pid) {
+            size_t count = n - 2 > 4 ? 4 : n - 2;
+            memcpy(out, &m.data[3], count);
+            return count;
         }
     }
+    return -1;
 }
 
 // Reads the supported-PID bitmaps 0x00, 0x20, ... as far as the chain goes.
@@ -114,6 +160,9 @@ static bool discover(void)
 {
     memset(s_supported, 0, sizeof s_supported);
     for (unsigned base = 0; base <= 0xE0; base += 0x20) {
+        if (atomic_load(&s_stop_requested)) {
+            return false;
+        }
         uint8_t b[4];
         if (request(base, b) != 4) {
             return base > 0;
@@ -130,6 +179,9 @@ static bool discover(void)
 
 static void decode(uint8_t pid, const uint8_t *b, int n, dash_data_t *d)
 {
+    if (n < 1) {
+        return;
+    }
     switch (pid) {
     case PID_RPM:
         if (n >= 2) {
@@ -144,6 +196,7 @@ static void decode(uint8_t pid, const uint8_t *b, int n, dash_data_t *d)
     case PID_MAF:
         if (n >= 2) {
             s_maf_x100 = (uint32_t)b[0] << 8 | b[1];
+            s_maf_valid = true;
         }
         break;
     case PID_ECT:
@@ -183,7 +236,7 @@ static void decode(uint8_t pid, const uint8_t *b, int n, dash_data_t *d)
 static void update_consumption(dash_data_t *d)
 {
     d->valid &= ~DASH_BIT(DASH_FCNS);
-    if (!pid_supported(PID_MAF) || !(d->valid & DASH_BIT(DASH_SPEED)) || d->speed == 0) {
+    if (!s_maf_valid || !pid_supported(PID_MAF) || !(d->valid & DASH_BIT(DASH_SPEED)) || d->speed == 0) {
         return;
     }
     // l/100km × 10 = maf_x100/100 [g/s] × 3600 / (14.7 × 745) [l/h] × 100 / speed × 10
@@ -192,11 +245,33 @@ static void update_consumption(dash_data_t *d)
     d->valid |= DASH_BIT(DASH_FCNS);
 }
 
-static void show(const dash_data_t *d)
+static esp_err_t show(const dash_data_t *d)
 {
-    if (esp_lv_adapter_lock(-1) == ESP_OK) {
+    esp_err_t err = esp_lv_adapter_lock(OBD_UI_WAIT_MS);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (!atomic_load(&s_stop_requested)) {
         dashboard_update(d);
-        esp_lv_adapter_unlock();
+    }
+    esp_lv_adapter_unlock();
+    return ESP_OK;
+}
+
+static void reset_measurements(dash_data_t *d)
+{
+    *d = (dash_data_t) {.errors = s_errors};
+    memset(s_supported, 0, sizeof s_supported);
+    s_maf_x100 = 0;
+    s_maf_valid = false;
+    strcpy(s_errors, "No ECU");
+}
+
+// Task notifications interrupt retry/cycle delays; RX and LVGL waits are finite.
+static void pause_ms(uint32_t ms)
+{
+    if (!atomic_load(&s_stop_requested)) {
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ms));
     }
 }
 
@@ -207,13 +282,12 @@ static void obd_task(void *arg)
     unsigned misses = 0;
     bool online = false;
 
-    for (;;) {
+    while (!atomic_load(&s_stop_requested)) {
         if (!online) {
-            d.valid = 0;
-            strcpy(s_errors, "No ECU");
+            reset_measurements(&d);
             show(&d);
             if (!discover()) {
-                vTaskDelay(pdMS_TO_TICKS(OBD_RETRY_MS));
+                pause_ms(OBD_RETRY_MS);
                 continue;
             }
             ESP_LOGI(TAG, "ECU online");
@@ -232,6 +306,9 @@ static void obd_task(void *arg)
         slow_idx = (slow_idx + 1) % sizeof slow_pids;
 
         for (size_t i = 0; i < n; i++) {
+            if (atomic_load(&s_stop_requested)) {
+                break;
+            }
             if (!pid_supported(polled[i])) {
                 continue;
             }
@@ -253,23 +330,108 @@ static void obd_task(void *arg)
 
         update_consumption(&d);
         show(&d);
-        vTaskDelayUntil(&start, pdMS_TO_TICKS(OBD_CYCLE_MS));
+        TickType_t elapsed = xTaskGetTickCount() - start;
+        TickType_t cycle = pdMS_TO_TICKS(OBD_CYCLE_MS);
+        if (elapsed < cycle && !atomic_load(&s_stop_requested)) {
+            ulTaskNotifyTake(pdTRUE, cycle - elapsed);
+        }
+    }
+    // No shared resources are touched after signaling completion. The owner
+    // deletes this now-quiescent task before deleting the node/RX queue.
+    xSemaphoreGive(s_done);
+    for (;;) {
+        vTaskSuspend(NULL);
     }
 }
 
-esp_err_t obd_start(void)
+static esp_err_t release_resources(void)
 {
-    s_rx = xQueueCreate(8, sizeof(rx_msg_t));
-    ESP_RETURN_ON_FALSE(s_rx, ESP_ERR_NO_MEM, TAG, "queue");
-    ESP_RETURN_ON_ERROR(board_can_new(CONFIG_DASH_CAN_BITRATE, &s_node), TAG, "can node");
-
-    const twai_mask_filter_config_t filter = {.id = OBD_RESP_ID, .mask = OBD_RESP_MASK};
-    ESP_RETURN_ON_ERROR(twai_node_config_mask_filter(s_node, 0, &filter), TAG, "filter");
-    const twai_event_callbacks_t cbs = {.on_rx_done = on_rx};
-    ESP_RETURN_ON_ERROR(twai_node_register_event_callbacks(s_node, &cbs, NULL), TAG, "callbacks");
-    ESP_RETURN_ON_ERROR(twai_node_enable(s_node), TAG, "enable");
-
-    BaseType_t ok = xTaskCreate(obd_task, "obd", 4096, NULL, 5, NULL);
-    ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task");
+    esp_err_t err = board_can_release(&s_node, &s_node_enabled);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (s_rx) {
+        vQueueDeleteWithCaps(s_rx);
+        s_rx = NULL;
+    }
+    if (s_done) {
+        vSemaphoreDeleteWithCaps(s_done);
+        s_done = NULL;
+    }
     return ESP_OK;
+}
+
+esp_err_t obd_stop(void)
+{
+    atomic_store(&s_stop_requested, true);
+    if (s_worker) {
+        if (!s_worker_joined) {
+            xTaskNotifyGive(s_worker);
+            if (xSemaphoreTake(s_done, pdMS_TO_TICKS(OBD_STOP_MS)) != pdTRUE) {
+                return ESP_ERR_TIMEOUT;
+            }
+            s_worker_joined = true;
+        }
+        vTaskDelete(s_worker);
+        s_worker = NULL;
+    }
+    return release_resources();
+}
+
+esp_err_t obd_start(const obd_profile_t *profile)
+{
+    if (!profile || !profile_valid(*profile)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (s_node || s_worker || s_rx || s_done) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    s_extended = profile_id_bits(*profile) == 29;
+    s_worker_joined = false;
+    atomic_store(&s_stop_requested, false);
+    s_rx = xQueueCreateWithCaps(8, sizeof(rx_msg_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    s_done = xSemaphoreCreateBinaryWithCaps(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    esp_err_t err = ESP_ERR_NO_MEM;
+    if (!s_rx || !s_done) {
+        goto fail;
+    }
+    err = board_can_create(profile_bitrate(*profile), false, &s_node);
+    if (err != ESP_OK) {
+        goto fail;
+    }
+    const twai_mask_filter_config_t filter = {
+        .id = s_extended ? OBD_RESP_EXT : OBD_RESP_STD,
+        .mask = s_extended ? OBD_MASK_EXT : OBD_MASK_STD,
+        .is_ext = s_extended,
+    };
+    err = twai_node_config_mask_filter(s_node, 0, &filter);
+    if (err != ESP_OK) {
+        goto fail;
+    }
+    const twai_event_callbacks_t cbs = {.on_rx_done = on_rx};
+    err = twai_node_register_event_callbacks(s_node, &cbs, s_rx);
+    if (err != ESP_OK) {
+        goto fail;
+    }
+    s_node_enabled = true; // include partially failed enable in cleanup
+    err = twai_node_enable(s_node);
+    if (err != ESP_OK) {
+        goto fail;
+    }
+    dash_data_t empty;
+    reset_measurements(&empty);
+    err = show(&empty);
+    if (err != ESP_OK) {
+        goto fail;
+    }
+    if (xTaskCreate(obd_task, "obd", 4096, NULL, 5, &s_worker) != pdPASS) {
+        err = ESP_ERR_NO_MEM;
+        goto fail;
+    }
+    return ESP_OK;
+
+fail:
+    atomic_store(&s_stop_requested, true);
+    esp_err_t cleanup_err = release_resources();
+    return cleanup_err == ESP_OK ? err : cleanup_err;
 }
