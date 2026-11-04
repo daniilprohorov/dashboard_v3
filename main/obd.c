@@ -346,30 +346,9 @@ static void obd_task(void *arg)
 
 static esp_err_t release_resources(void)
 {
-    if (s_node) {
-        if (s_node_enabled) {
-            esp_err_t err = twai_node_disable(s_node);
-            if (err == ESP_ERR_INVALID_STATE) {
-                // IDF also uses BUS_OFF as its stopped state. A genuinely
-                // bus-off enabled node is deletable; delete frees its ISR.
-                twai_node_status_t status;
-                err = twai_node_get_info(s_node, &status, NULL);
-                if (err == ESP_OK && status.state != TWAI_ERROR_BUS_OFF) {
-                    err = ESP_ERR_INVALID_STATE;
-                }
-            }
-            if (err != ESP_OK) {
-                return err;
-            }
-            s_node_enabled = false;
-        }
-        // Retain callback context and RX queue until deletion has freed the
-        // interrupt, including the BUS_OFF path where disable was a no-op.
-        esp_err_t err = twai_node_delete(s_node);
-        if (err != ESP_OK) {
-            return err;
-        }
-        s_node = NULL;
+    esp_err_t err = board_can_release(&s_node, &s_node_enabled);
+    if (err != ESP_OK) {
+        return err;
     }
     if (s_rx) {
         vQueueDeleteWithCaps(s_rx);

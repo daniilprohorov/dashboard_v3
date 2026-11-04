@@ -2,12 +2,17 @@
 
 Status: ready-for-agent
 Blocked by: 05,06
+Implementation: completed
+Implementation commit: [943cf62](https://github.com/daniilprohorov/dashboard_v3/commit/943cf62)
+Review repair: `impl/logger-review-fixes` (final discovery/error schema, truthful PTY evidence and limitations)
+PR: [#1](https://github.com/daniilprohorov/dashboard_v3/pull/1)
+Acceptance evidence: [host record and unverified hardware gates](../../../docs/logger-acceptance.md); final verification belongs to the integration owner.
 
 ## Context
 
 - Spec: [../spec.md](../spec.md), complete normative requirements.
-- Shared design contract: `/tmp/dashboard-logger-contract.md`; final code is source of factual details.
-- Verification prerequisites: `/tmp/dashboard-logger-verification.md`.
+- Published implementation contracts: [UART/CSV](../../../docs/logger-protocol.md), [operator/JSON](../../../docs/logger.md).
+- Verification procedures and observed evidence: [acceptance record](../../../docs/logger-acceptance.md).
 
 ## Target
 

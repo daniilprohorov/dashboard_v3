@@ -2,11 +2,16 @@
 
 Status: ready-for-agent
 Blocked by: none
+Implementation: completed
+Implementation commit: [cbe8894](https://github.com/daniilprohorov/dashboard_v3/commit/cbe8894)
+Review repair: `impl/logger-review-fixes` (USB-only automatic probing and distinct response_timeout)
+PR: [#1](https://github.com/daniilprohorov/dashboard_v3/pull/1)
+Acceptance evidence: [host record and unverified hardware gates](../../../docs/logger-acceptance.md); final verification belongs to the integration owner.
 
 ## Context
 
 - Spec: [../spec.md](../spec.md) (normative, entire acceptance scope).
-- Shared implementation contract: `/tmp/dashboard-logger-contract.md` (frozen cross-ticket APIs/wire/CSV).
+- Published implementation contracts: [UART/CSV](../../../docs/logger-protocol.md), [operator/JSON](../../../docs/logger.md).
 
 ## Target
 

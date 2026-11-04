@@ -281,3 +281,36 @@ esp_err_t board_can_create(uint32_t bitrate, bool listen_only, twai_node_handle_
     }
     return err;
 }
+
+esp_err_t board_can_release(twai_node_handle_t *node, bool *enabled)
+{
+    if (!node || !enabled) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!*node) {
+        return ESP_OK;
+    }
+    if (*enabled) {
+        esp_err_t err = twai_node_disable(*node);
+        if (err == ESP_ERR_INVALID_STATE) {
+            // IDF v5.5.5 uses BUS_OFF for both disabled and real bus-off.
+            // Both are physically stopped and can be deleted.
+            twai_node_status_t status;
+            err = twai_node_get_info(*node, &status, NULL);
+            if (err == ESP_OK && status.state != TWAI_ERROR_BUS_OFF) {
+                err = ESP_ERR_INVALID_STATE;
+            }
+        }
+        if (err != ESP_OK) {
+            return err;
+        }
+        *enabled = false;
+    }
+    // IDF frees the interrupt on its owning core (blocking IPC when needed).
+    // Keep callbacks/context alive until this joins any in-flight callback.
+    esp_err_t err = twai_node_delete(*node);
+    if (err == ESP_OK) {
+        *node = NULL;
+    }
+    return err;
+}

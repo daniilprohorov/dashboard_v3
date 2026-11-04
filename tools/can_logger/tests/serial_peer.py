@@ -33,11 +33,18 @@ CAPABILITIES = {
 }
 
 
-def cli(arguments):
+def cli(arguments, *, pty_port=None):
+    environment = os.environ.copy()
+    if sys.platform == "darwin" and pty_port is not None:
+        adapter = str(Path(__file__).resolve().parent / "pty_compat")
+        environment["PYTHONPATH"] = os.pathsep.join(
+            part for part in (adapter, environment.get("PYTHONPATH")) if part
+        )
+        environment["DASHBOARD_TEST_PTY"] = pty_port
     return subprocess.Popen(
         [sys.executable, "-m", "can_logger", *map(str, arguments)],
         cwd=PACKAGE_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, start_new_session=True,
+        text=True, start_new_session=True, env=environment,
     )
 
 
@@ -75,7 +82,7 @@ class SerialPeer:
         os.close(self.slave)
 
     def launch(self, arguments):
-        process = cli(arguments)
+        process = cli(arguments, pty_port=self.port)
         self.processes.append(process)
         return process
 
@@ -98,12 +105,22 @@ class SerialPeer:
     def request(self, timeout=5):
         deadline = time.monotonic() + timeout
         while b"\n" not in self.buffer:
+            process = self.processes[-1] if self.processes else None
+            exited = process is not None and process.poll() is not None
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise AssertionError("CLI did not send the next UART request")
-            readable, _, _ = select.select([self.master], [], [], remaining)
+            readable, _, _ = select.select(
+                [self.master], [], [], 0 if exited else min(0.05, remaining),
+            )
             if not readable:
-                raise AssertionError("CLI did not send the next UART request")
+                if exited:
+                    stdout, stderr = process.communicate(timeout=5)
+                    raise AssertionError(
+                        f"CLI exited {process.returncode} before the next UART request: "
+                        f"stdout={stdout!r}, stderr={stderr!r}"
+                    )
+                continue
             self.buffer.extend(os.read(self.master, 4096))
         raw, _, rest = self.buffer.partition(b"\n")
         self.buffer = bytearray(rest)

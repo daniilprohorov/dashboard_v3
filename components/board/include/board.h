@@ -56,10 +56,16 @@ esp_err_t board_can_validate_bitrate(uint32_t bitrate);
 // frames; the IDF driver also rejects transmit calls on that node.
 // Requires board_init(). A live node must be disabled/deleted before creating
 // another; the single-controller driver's allocation error is propagated.
-// Caller owns filters, callbacks, enable/disable and twai_node_delete().
+// Caller owns filters, callbacks and enable; release through board_can_release().
 // *out is NULL on failure, except if cleanup itself fails: then *out retains
 // the disabled node so the caller can retry deletion; cleanup error is returned.
 esp_err_t board_can_create(uint32_t bitrate, bool listen_only, twai_node_handle_t *out);
+
+// Disable then delete a caller-owned node, including IDF's already-BUS_OFF
+// stopped-state quirk. A NULL *node is already released. On failure retain the
+// handle and its enabled state for retry; only successful deletion clears it.
+// Successful return joins the node's ISR before callback context can be reused.
+esp_err_t board_can_release(twai_node_handle_t *node, bool *enabled);
 
 // Atomic, task-context snapshot of boot-cumulative detected RX-overrun events
 // for the single CAN controller, including earlier OBD operation. Baseline

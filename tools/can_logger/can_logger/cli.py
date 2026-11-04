@@ -25,7 +25,7 @@ def parser():
     root = Parser(prog="dashboard-can", description="Passive dashboard_v3 CAN capture over 2 Mbaud UART.")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True, parser_class=Parser)
-    commands.add_parser("ports", help="Probe serial ports without asserting DTR/RTS; never auto-select a device")
+    commands.add_parser("ports", help="List all ports; HELLO-probe USB candidates only; never auto-select")
     for command in ("status", "capabilities"):
         sub = commands.add_parser(command, help=f"Read device {command} without changing mode")
         sub.add_argument("--port", required=True, help="Explicit UART device path")
@@ -206,8 +206,11 @@ def run_capture(args):
         failure = exc
         if capture is not None and capture.final is None:
             if exc.exit_code == 3:
-                failure = Failure(6, "link_loss", str(exc))
-            reason = "link_loss" if failure.code in {"link_loss", "response_timeout"} else failure.code
+                # A missing command response can coexist with healthy frames.
+                # Only actual transport failures become link loss.
+                code = exc.code if exc.code == "response_timeout" else "link_loss"
+                failure = Failure(6, code, str(exc))
+            reason = failure.code
             try:
                 sink.end(reason)
             except Failure as output_failure:
@@ -267,7 +270,12 @@ def discover():
     for candidate in candidates:
         entry = {"port": candidate.device, "description": candidate.description,
                  "hwid": candidate.hwid, "vid": candidate.vid, "pid": candidate.pid,
-                 "serial_number": candidate.serial_number, "is_dashboard": False}
+                 "serial_number": candidate.serial_number, "is_dashboard": False,
+                 "probed": candidate.vid is not None}
+        if not entry["probed"]:
+            entry["skip_reason"] = "no_usb_vid"
+            ports.append(entry)
+            continue
         connection = None
         try:
             connection = Connection(candidate.device)
