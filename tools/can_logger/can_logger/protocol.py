@@ -5,14 +5,21 @@ from dataclasses import dataclass
 
 
 class Failure(Exception):
-    def __init__(self, exit_code, code, message):
+    def __init__(self, exit_code, code, message, *, torn=False):
         super().__init__(message)
         self.exit_code = exit_code
         self.code = code
+        # True only for a line torn on the UART link (framing damage), not for
+        # a well-framed device message whose fields violate the contract.
+        self.torn = torn
 
 
 def invalid(message):
     raise Failure(4, "protocol_error", message)
+
+
+def torn(message):
+    raise Failure(4, "protocol_error", message, torn=True)
 
 
 def require(condition, message):
@@ -185,14 +192,16 @@ def parse(raw):
     try:
         text = raw.decode("ascii")
     except UnicodeDecodeError:
-        invalid("Non-ASCII protocol line")
-    require(all(32 <= ord(char) <= 126 for char in text), "Control byte in protocol line")
+        torn("Non-ASCII protocol line")
+    if not all(32 <= ord(char) <= 126 for char in text):
+        torn("Control byte in protocol line")
     tokens = text.split(" ")
-    require(len(tokens) >= 2 and all(tokens), "Invalid protocol spacing")
+    if len(tokens) < 2 or not all(tokens):
+        torn("Invalid protocol spacing")
     if tokens[0] != "@D1":
         if re.fullmatch(r"@D[0-9]+", tokens[0]):
             raise Failure(4, "unsupported_version", "Unsupported UART protocol version")
-        invalid("Missing @D1 protocol prefix")
+        torn("Missing @D1 protocol prefix")
     kind = tokens[1]
     rid = 0
     ok = True
@@ -207,10 +216,11 @@ def parse(raw):
         values = tokens[2:]
     fields = {}
     for token in values:
-        require(token.count("=") == 1, "Malformed key=value token")
+        if token.count("=") != 1:
+            torn("Malformed key=value token")
         key, value = token.split("=", 1)
-        require(re.fullmatch(r"[a-z][a-z0-9_]*", key) is not None and value and key not in fields,
-                "Duplicate/invalid protocol field")
+        if re.fullmatch(r"[a-z][a-z0-9_]*", key) is None or not value or key in fields:
+            torn("Duplicate/invalid protocol field")
         fields[key] = value
     if kind == "R" and not ok:
         keys(fields, "code")

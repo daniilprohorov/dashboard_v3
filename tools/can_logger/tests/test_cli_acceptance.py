@@ -549,6 +549,7 @@ class CliAcceptance(unittest.TestCase):
         peer.frame(seq=1, can_id="001")
         peer.end()
         first_result = self.result(peer.finish(first))
+        self.assertEqual(first_result["corrupt_lines"], 0)
         first_bytes = self.output.read_bytes()
         self.result(peer.assert_released())
         output = self.root / "next.csv"
@@ -583,11 +584,17 @@ class CliAcceptance(unittest.TestCase):
                     self.assertFalse(output.exists())
                 self.result(peer.assert_released())
 
-    def test_malformed_active_lines_fail_loudly_with_local_end(self):
+    def test_other_active_protocol_version_fails_loudly_with_local_end(self):
+        peer = self.peer()
+        process = self.start(peer)
+        peer.write(f"@D2 F sid={SID} seq=2 us=1100 bits=11 id=001 rtr=0 dlc=2 data=0001\n")
+        result = self.result(peer.finish(process), 4, "unsupported_version")
+        self.assert_local_end(result, reason="unsupported_version")
+
+    def test_framed_protocol_violations_fail_loudly_with_local_end(self):
         base = f"@D1 F sid={SID} seq=1 us=1100 bits=11 id=001 rtr=0 dlc=2 data=0001"
         cases = [
-            ("ESP_LOG unexpected\n", "protocol_error"), ("\n", "protocol_error"),
-            ("@D1 unknown\n", "protocol_error"), ("@D2 F sid=" + SID + "\n", "unsupported_version"),
+            ("@D1 unknown\n", "protocol_error"),
             (base.replace("id=001", "id=1") + "\n", "protocol_error"),
             (base.replace("id=001", "id=00a") + "\n", "protocol_error"),
             (base.replace("id=001", "id=800") + "\n", "protocol_error"),
@@ -602,13 +609,8 @@ class CliAcceptance(unittest.TestCase):
             (base.replace("seq=1", "seq=-1") + "\n", "protocol_error"),
             (base.replace("seq=1", "seq=18446744073709551616") + "\n", "protocol_error"),
             (base.replace(SID, OTHER_SID) + "\n", "protocol_error"),
-            (base + " seq=1\n", "protocol_error"),
             (base + " extra=1\n", "protocol_error"),
             (base.replace(" data=0001", "") + "\n", "protocol_error"),
-            (base.replace(" seq=1", "  seq=1") + "\n", "protocol_error"),
-            (b"\xff\xfe\n", "protocol_error"),
-            (b"@D1 F \x00\n", "protocol_error"),
-            (b"x" * 1025, "protocol_error"),
         ]
         for index, (payload, code) in enumerate(cases):
             with self.subTest(payload=payload):
@@ -618,6 +620,30 @@ class CliAcceptance(unittest.TestCase):
                 peer.write(payload)
                 result = self.result(peer.finish(process), 4, code)
                 self.assert_local_end(result, reason=code)
+
+    def test_torn_active_lines_are_resynchronized_and_counted(self):
+        base = f"@D1 F sid={SID} seq=1 us=1100 bits=11 id=001 rtr=0 dlc=2 data=0001"
+        cases = [
+            b"ESP_LOG unexpected\n", b"\n", b"\xff\xfe\n", b"@D1 F \x00\n",
+            (base + " seq=2\n").encode(), (base.replace(" seq=1", "  seq=1") + "\n").encode(),
+            (base.replace("data=0001", "data=000=1") + "\n").encode(),
+            b"@D1 F sid\n",
+        ]
+        for index, payload in enumerate(cases):
+            with self.subTest(payload=payload):
+                self.output = self.root / f"torn-{index}.csv"
+                peer = self.peer()
+                process = self.start(peer)
+                peer.write(payload)
+                peer.frame(seq=2)
+                peer.end()
+                result = self.result(peer.finish(process))
+                self.assertEqual(result["corrupt_lines"], 1)
+                self.assertEqual(result["reason"], "duration")
+                self.assertEqual(result["source"], "device")
+                rows = self.rows()
+                self.assertEqual([row["seq"] for row in rows if row["event"] == "frame"], ["2"])
+                self.assertEqual(rows[-1]["reason"], "duration")
 
     def test_frame_sequence_duplicates_regressions_and_timestamp_regressions_are_errors(self):
         for index, (seq, us) in enumerate([(1, "1200"), (0, "1200"), (2, "1099")]):

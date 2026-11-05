@@ -19,6 +19,8 @@ class Connection:
         self.lines = deque()
         self.discard_noise = False
         self.established = False
+        self.tolerate_corrupt = False
+        self.corrupt_lines = 0
         self.pending = {}
         self.next_rid = 1
         self.last_rx = time.monotonic()
@@ -102,7 +104,19 @@ class Connection:
             return None
         if not self.established and not raw.startswith(b"@D"):
             return None  # Boot noise is legal only before successful HELLO.
-        message = wire.parse(raw)
+        try:
+            message = wire.parse(raw)
+        except Failure as exc:
+            # A torn line on the 2-Mbaud link is link damage, not a device
+            # message: one dropped byte makes the line unparseable. Skipping
+            # the line discards the whole capture. Resynchronize at the next
+            # LF instead and surface the loss in the result. A different
+            # @D<version> remains a hard incompatibility, not noise.
+            if not (self.tolerate_corrupt and self.established and exc.torn):
+                raise
+            self.last_rx = time.monotonic()
+            self.corrupt_lines += 1
+            return None
         self.last_rx = time.monotonic()
         if message.kind == "R":
             wire.require(message.rid in self.pending, "Unsolicited/duplicate command response")

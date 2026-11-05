@@ -171,6 +171,9 @@ def run_capture(args):
         if args.duration_ms is not None:
             arguments["duration_ms"] = args.duration_ms
         started = connection.request("START", **arguments)
+        # From here the link carries both command responses and frames. A torn
+        # UART line is resynchronized and counted instead of ending capture.
+        connection.tolerate_corrupt = True
         capture = Capture(sink, started, hello, args)
         connection.on_event = capture.event
         sink.start(started, hello)
@@ -230,10 +233,11 @@ def run_capture(args):
         signal.signal(signal.SIGINT, previous)
     if capture is not None:
         result = capture.result(reason, failure)
+        result["corrupt_lines"] = connection.corrupt_lines if connection is not None else 0
     else:
         result = error_result("capture", failure)
         result.update(session_id=None, config=None, counters=counters(), source="cli",
-                      reason=reason, output=args.output)
+                      reason=reason, output=args.output, corrupt_lines=0)
     return result, failure.exit_code if failure else 0
 
 
